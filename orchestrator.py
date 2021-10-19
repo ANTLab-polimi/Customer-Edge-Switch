@@ -6,15 +6,37 @@ from p4runtime_sh.shell import PacketIn
 from time import sleep
 from scapy.all import *
 import yaml
+import threading
 
 # No need to import p4runtime_lib
 # import p4runtime_lib.bmv2
+
+#check if PolicyDB has been modified
+def mod_detecter():
+    while True:
+        i = inotify.adapters.Inotify()
+        i.add_watch("policiesDB.yaml")
+
+        for event in i.event_gen(yield_nones=False):
+            (_, type_names, path, filename) = event
+
+            if "IN_CLOSE_WRITE" in event[1]: #type_names is a list
+                print("[!] POLICYDB MODIFIED")
+                #[!] to add -> function that manages modifications in policyDB
+
+            #log:
+            #print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
+
+
 
 def checkPolicies(pkt):
     #policyDB as a yaml file
     #each policy is a tuple containing specific attributes
     stream = open("policiesDB.yaml", 'r')
     policies_list = yaml.safe_load(stream)
+    
+    policies_len = le
+
     lookForPolicy(policies_list, pkt)
 
     #if policyDB is a .txt file
@@ -25,6 +47,7 @@ def checkPolicies(pkt):
     #    while line:
     #        policies.append(line.split(" "))
     #        line = f.readline()
+
 
 #if policyDB is managed as a true db
 def checkPoliciesDB(packet):
@@ -48,61 +71,61 @@ def checkPoliciesDB(packet):
         print(e)
 
 
-def lookForPolicy(policyList, packet):
+def lookForPolicy(policyList, pkt):
     found = False
     print("[!] Policies: \n")
     print(policyList)
     
     src = pkt.getlayer(IP).src
     dst = pkt.getlayer(IP).dst
-    srcAddr = pkt.getlayer(Ether).src
-    switchAddr = pkt.getlayer(Ether).dst
     
     pkt_tcp = pkt.getlayer(TCP)
     pkt_udp = pkt.getlayer(UDP)
+    protocol = ""
     if pkt_tcp != None:
         sport = pkt_tcp.sport
         dport = pkt_tcp.dport
+        protocol = "TCP"
     elif pkt_udp != None:
         sport = pkt_udp.sport
         dport = pkt_udp.dport
+        protocol = "UDP"
     else:
-        print("\nProtocol unknown\n")
+        print("\n[!] Protocol unknown\n")
+        return
 
     print("src: " + src)
     print("dst: " + dst)
-    print("scr: " + srcAddr)
-    print("switchAddr: " + switchAddr)
     print("sport: " + str(sport))
     print("dport: " + str(dport))
     
+
     pkt_icmp = pkt.getlayer(ICMP)
     pkt_ip = pkt.getlayer(IP)
 
     for policy in policyList:
         #policy_tuple.get("dst")
-        if src == policy.get("src") and dst == policy.get("dst") and dport == policy.get("dport"):
+        if src == policy.get("src") and dst == policy.get("ip") and dport == policy.get("port") and protocol == policy.get("protocol"): #check how to specify src (imsi, ip, ...)
             addEntries(src, dst, dport)
             
             #add bi-directional entry if icmp packet
             if pkt_icmp != None and pkt_ip != None and str(pkt_icmp.getlayer(ICMP).type) == "8":
-                addEntries(dst, src, sport)#also sport and protocol
+                addEntries(dst, src, sport)
             
             found = True
             break
     if not found:
         #packet drop
         packet = None
-        print("[!] Packet dropped")
+        print("[!] Packet dropped\n\n\n")
 
-def addEntries(ip_src, ip_dst, port):#add port and protocol
+def addEntries(ip_src, ip_dst, port):
     te = sh.TableEntry('my_ingress.ipv4_exact')(action='my_ingress.ipv4_forward')
     te.match["hdr.ipv4.srcAddr"] = ip_src
     te.match["hdr.ipv4.dstAddr"] = ip_dst
-    te.action["dstAddr"] = dstAddr
     te.action["port"] = port
     te.insert()
-    print("[!] New entry added")
+    print("[!] New entry added\n\n\n")
 
 
 def packetHandler(streamMessageResponse):
@@ -133,10 +156,13 @@ def controller():
     #connection
     sh.setup(
         device_id=0,
-        grpc_addr='localhost:50051', #substitute localhost with switch ip address
+        grpc_addr='192.187.3.8:50051', #substitute ip and port with the ones of the specific switch
         election_id=(1, 0), # (high, low)
         config=sh.FwdPipeConfig('p4-test.p4info.txt','p4-test.json')
     )
+
+    detector = threading.Thread(target = mod_detecter)
+    detector.start()
 
     while True:
         packets = None

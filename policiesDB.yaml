@@ -1,0 +1,70 @@
+#Here is a list of policies used as a test; each specific policy is a tuple
+
+#policies:
+-
+ serviceName: "name" #application name
+ ip: '10.0.2.15' #src IP
+ port: 53 #service port
+ protocol: TCP #protocol
+ allowed_users: 
+ -
+  method: 'imsi' #other auth method: IP, SPA, ...
+  user: '310170845466094'
+ -
+  method: 'imsi'
+  user: '5021301234567894'
+ tee: True #trusted execution environment
+ fs_encr: False #file system encryption
+ net_encr: False #network encryption
+ sec_boot: True #secure boot
+
+-
+ serviceName: "name2"
+ ip: '10.0.1.1' 
+ port: 12
+ protocol: TCP
+ allowed_users: 
+ -
+  method: 'imsi'
+  user: '310170845466094'
+ -
+  method: 'imsi'
+  user: '5021301234567894'
+ tee: True
+ fs_encr: False
+ net_encr: False
+ sec_boot: True
+
+-
+ serviceName: "name3"
+ ip: '10.0.2.2' 
+ port: 48
+ protocol: TCP
+ allowed_users: 
+ -
+  method: 'imsi'
+  user: '310170845466094'
+ -
+  method: 'imsi'
+  user: '5021301234567894'
+ tee: True
+ fs_encr: False
+ net_encr: False
+ sec_boot: True
+
+-
+ serviceName: "name3"
+ ip: '10.0.3.3' 
+ port: 27
+ protocol: TCP
+ allowed_users:
+ -
+  method: 'imsi'
+  user: '310170845466094'
+ -
+  method: 'imsi'
+  user: '5021301234567894'
+ tee: True
+ fs_encr: False
+ net_encr: False
+ sec_boot: True
