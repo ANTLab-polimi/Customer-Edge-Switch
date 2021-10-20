@@ -11,6 +11,9 @@ import threading
 # No need to import p4runtime_lib
 # import p4runtime_lib.bmv2
 
+
+policies_list = []
+
 #check if PolicyDB has been modified
 def mod_detecter():
     while True:
@@ -28,17 +31,61 @@ def mod_detecter():
             #print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
 
 
+#[!] TOADD: function that manages specific changes inside switch table
+def mod_manager():
+    global policies_list
+    tmp = policies_list
+    getPolicies()
+    found = False
 
-def checkPolicies(pkt):
+    for policy in policies_list:
+        for policy_tmp in tmp:
+            if policy.get("serviceName") == policy_tmp.get("serviceName"):
+                found = True
+                print("[!] Service found: " + "--> " + policy.get("serviceName"))
+            
+                if policy.get("ip") != policy_tmp.get("ip"):
+                    print("[!] IP_MODIFICATIONS")
+        
+                if policy.get("port") != policy_tmp.get("port"):
+                    print("[!] PORT_MODIFICATIONS")
+
+                if policy.get("protocol") != policy_tmp.get("protocol"):
+                    print("[!] PROTOCOL_MODIFICATIONS")
+
+                for ue in policy.get("allowed_users"):
+                    ue_mod = False
+                    if ue not in policy_tmp.get("allowed_users"):
+                        ue_mod = True
+                        print("[!] UE_MODIFICATIONS")
+                        print("ue_mod:")
+                        print(ue_mod)
+
+                if policy.get("tee") != policy_tmp.get("tee"):
+                    print("[!] TEE_MODIFICATIONS")
+
+                if policy.get("fs_encr") != policy_tmp.get("fs_encr"):
+                    print("[!] FS_ENCR_MODIFICATIONS")
+
+                if policy.get("net_encr") != policy_tmp.get("net_encr"):
+                    print("[!] NET_ENCR_MODIFICATIONS")
+
+                if policy.get("sec_boot") != policy_tmp.get("sec_boot"):
+                    print("[!] SEC_BOOT_MODIFICATIONS")
+                
+                break
+
+            if not found:
+                print("[!] Service not found")
+
+
+def getPolicies():
     #policyDB as a yaml file
     #each policy is a tuple containing specific attributes
+    global policies_list 
     stream = open("policiesDB.yaml", 'r')
     policies_list = yaml.safe_load(stream)
     
-    policies_len = le
-
-    lookForPolicy(policies_list, pkt)
-
     #if policyDB is a .txt file
     #policies = []
     #with open("policiesDB.txt", 'r') as f:
@@ -50,8 +97,8 @@ def checkPolicies(pkt):
 
 
 #if policyDB is managed as a true db
-def checkPoliciesDB(packet):
-    policies = []
+def getPoliciesDB(packet):
+    global policies_list
     try:
         with connect(
             host="localhost",
@@ -63,9 +110,8 @@ def checkPoliciesDB(packet):
             prepared_statement = "SELECT * FROM policies"
             with connection.cursor() as cursor:
                 cursor.execute(prepared_statement)
-                policies = cursor.fetchall()
+                policies_list = cursor.fetchall()
             print(policies)
-            lookForPolicy(policies, packet)
 
     except Error as e:
         print(e)
@@ -119,6 +165,7 @@ def lookForPolicy(policyList, pkt):
         packet = None
         print("[!] Packet dropped\n\n\n")
 
+
 def addEntries(ip_src, ip_dst, port):
     te = sh.TableEntry('my_ingress.ipv4_exact')(action='my_ingress.ipv4_forward')
     te.match["hdr.ipv4.srcAddr"] = ip_src
@@ -145,14 +192,16 @@ def packetHandler(streamMessageResponse):
 
         if pkt_icmp != None and pkt_ip != None and str(pkt_icmp.getlayer(ICMP).type) == "8":
             print("[!] Ping from: " + pkt_src)
-            checkPolicies(pkt)
+            lookForPolicy(policies_list, pkt)
         elif pkt_ip != None:
             print("[!] Packet received: " + pkt_src + "-->" + pkt_dst)
-            checkPolicies(pkt)
+            lookForPolicy(policies_list, pkt)
         else:
             print("[!] No needed layer (ARP, DNS, ...)")
 
 def controller():
+    global policies_list
+
     #connection
     sh.setup(
         device_id=0,
@@ -161,6 +210,10 @@ def controller():
         config=sh.FwdPipeConfig('p4-test.p4info.txt','p4-test.json')
     )
 
+    #get and save policies_list    
+    getPolicies()
+
+    #thread that checks for policies modifications
     detector = threading.Thread(target = mod_detecter)
     detector.start()
 
