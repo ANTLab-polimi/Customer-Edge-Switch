@@ -7,6 +7,7 @@ from time import sleep
 from scapy.all import *
 import yaml
 import threading
+import inotify.adapters
 
 # No need to import p4runtime_lib
 # import p4runtime_lib.bmv2
@@ -15,17 +16,17 @@ import threading
 policies_list = []
 
 #check if PolicyDB has been modified
-def mod_detecter():
+def mod_detector():
     while True:
         i = inotify.adapters.Inotify()
-        i.add_watch("policiesDB.yaml")
+        i.add_watch("../CES/policiesDB.yaml")
 
         for event in i.event_gen(yield_nones=False):
             (_, type_names, path, filename) = event
 
             if "IN_CLOSE_WRITE" in event[1]: #type_names is a list
                 print("[!] POLICYDB MODIFIED")
-                #[!] to add -> function that manages modifications in policyDB
+                mod_manager()
 
             #log:
             #print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
@@ -59,15 +60,35 @@ def mod_manager():
                 if policy.get("protocol") != policy_tmp.get("protocol"):
                     print("[!] PROTOCOL_MODIFICATIONS")
                     
-                #UE checks (add or del)
+                #UE checks
+                #add
                 for ue in policy.get("allowed_users"):
                     if ue not in policy_tmp.get("allowed_users"):
                         print("[!] UE_MODIFICATIONS_ADD")
-                        addEntries(ue_ip, policy.get("ip"), policy.get("port")) #[!] how to handle ue_ip \w auth different from ip?
+                        if ue.get("method") == "ip":
+                            addEntries(ue.get("user"), policy.get("ip"), policy.get("port"))
+                        else: #imsi or token
+                            stream = open("../CES/ip_map.yaml", 'r')
+                            mapping = yaml.safe_load(stream)
+                            for service in mapping:
+                                if service.get("serviceName") == policy.get("serviceName") and service.get("ip") == policy.get("ip"): #same service and ip
+                                    for user in service.get("allowed_users"):
+                                        if user.get("method") == ue.get("method") and user.get("user") == ue.get("user"): #same method and same id (imsi or token)
+                                            addEntries(user.get("actual_ip", policy.get("ip"), policy.get("port")))
+                #del
                 for ue in policy_tmp.get("allowed_users"):
                     if ue not in policy.get("allowed_users"):
                         print("[!] UE_MODIFICATIONS_DEL")
-                        delUE(ue_ip, policy.get("ip")) #[!] how to handle ue_ip \w auth different from ip?
+                        if ue.get("method") == "ip":
+                            delUE(ue.get("user") , policy.get("ip"))
+                        else: #imsi or token
+                            stream = open("../CES/ip_map.yaml", 'r')
+                            mapping = yaml.safe_load(stream)
+                            for service in mapping:
+                                if service.get("serviceName") == policy.get("serviceName") and service.get("ip") == policy.get("ip"): #same service and ip
+                                    for user in service.get("allowed_users"):
+                                        if user.get("method") == ue.get("method") and user.get("user") == ue.get("user"): #same method and same id (imsi or token)
+                                            delUE(user.get("actual_ip"), policy.get("ip"))
 
                 if policy.get("tee") != policy_tmp.get("tee"):
                     print("[!] TEE_MODIFICATIONS")
@@ -99,7 +120,7 @@ def delPolicies(ip):
             te.delete()
 
 
-#edit service ip 
+#edit service ip
 def editIPPolicies(old_ip, new_ip, port):
     for te in sh.TableEntry("my_ingress.ipv4_exact").read():
         if te.match["hdr.ipv4.srcAddr"] == old_ip:
@@ -147,7 +168,7 @@ def getPolicies():
     #policyDB as a yaml file
     #each policy is a tuple containing specific attributes
     global policies_list 
-    stream = open("policiesDB.yaml", 'r')
+    stream = open("../CES/policiesDB.yaml", 'r')
     policies_list = yaml.safe_load(stream)
     
     #if policyDB is a .txt file
@@ -245,6 +266,8 @@ def packetHandler(streamMessageResponse):
         ether_type = pkt.getlayer(Ether).type
         pkt_icmp = pkt.getlayer(ICMP)
         pkt_ip = pkt.getlayer(IP)
+        pkt_arp = pkt.getlayer(ARP)
+        pkt_dns = pkt.getlayer(DNS)
 
         if pkt_icmp != None and pkt_ip != None and str(pkt_icmp.getlayer(ICMP).type) == "8":
             print("[!] Ping from: " + pkt_src)
@@ -252,6 +275,10 @@ def packetHandler(streamMessageResponse):
         elif pkt_ip != None:
             print("[!] Packet received: " + pkt_src + "-->" + pkt_dst)
             lookForPolicy(policies_list, pkt)
+        #elif pkt_dns != None:
+        #    print("DNS - to remove (debug purpose)")
+        #elif pkt_arp != None:
+        #    print("ARP - to remove (debug purpose)")
         else:
             print("[!] No needed layer (ARP, DNS, ...)")
 
@@ -262,17 +289,29 @@ def controller():
 
     #connection
     sh.setup(
-        device_id=0,
-        grpc_addr='192.187.3.8:50051', #substitute ip and port with the ones of the specific switch
+        device_id=1,
+        grpc_addr='172.17.0.3:50051', #substitute ip and port with the ones of the specific switch
         election_id=(1, 0), # (high, low)
-        config=sh.FwdPipeConfig('p4-test.p4info.txt','p4-test.json')
+        config=sh.FwdPipeConfig('../CES/p4-test.p4info.txt','../CES/p4-test.json')
     )
+
+    #drop control packets (if interface is unique)
+    #te = sh.TableEntry('my_ingress.ipv4_exact')(action='my_ingress.drop')
+    #te.match["hdr.ipv4.srcAddr"] = "192.187.3.7"
+    #te.match["hdr.ipv4.dstAddr"] = "192.187.3.8"
+    #te.insert()
+    #te = sh.TableEntry('my_ingress.ipv4_exact')(action='my_ingress.drop')
+    #te.match["hdr.ipv4.srcAddr"] = "192.187.3.8"
+    #te.match["hdr.ipv4.dstAddr"] = "192.187.3.7"
+    #te.insert()
+    #print("[!] Control packets to be dropped")
+
 
     #get and save policies_list    
     getPolicies()
 
     #thread that checks for policies modifications
-    detector = threading.Thread(target = mod_detecter)
+    detector = threading.Thread(target = mod_detector)
     detector.start()
 
     #listening for new packets
