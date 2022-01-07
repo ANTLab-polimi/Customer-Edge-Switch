@@ -1,18 +1,28 @@
 -
  serviceName: "name" #application name
  ip: '172.0.0.1'
+ serviceEther: "ff:ff:ff:ff:ff:ff"
  allowed_users: 
  -
-  method: 'ip' #other auth method: IP, SPA, ...
-  user: '10.0.0.1'
+  method: 'token' #other auth method: IMSI, ...
+  imsi: '310170845466094'
   actual_ip: '10.0.0.1'
+  sport: 53
+  ether: "ff:ff:ff:ff:ff:aa"
+  token: "abcdefghilmopqrstuvz123456789"
  -
   method: 'imsi' #other auth method: IP, SPA, ...
-  user: '310170845466094'
+  imsi: '310170845466094'
   actual_ip: '10.0.0.3'
+  sport: 22
+  ether: "ff:ff:ff:ff:ff:bb"
+  token: "abcdefghilmopqrstuvz123456789"
  -
   method: 'imsi'
-  user: '5021301234567894'
+  imsi: '5021301234567894'
   actual_ip: '10.0.0.6'
-
+  sport: 80
+  ether: "ff:ff:ff:ff:ff:cc"
+  token: "abcdefghilmopqrstuvz123456789"
+    
 #...

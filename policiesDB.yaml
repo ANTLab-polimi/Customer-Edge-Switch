@@ -3,13 +3,14 @@
 #policies:
 -
  serviceName: "name" #application name
- ip: '10.0.2.15' #src IP
- port: 53 #service port
+ ip: '11.0.0.253' #IP
+ port: 80 #service port
+ serviceEther: "ff:ff:ff:ff:ff:ff"
  protocol: TCP #protocol
  allowed_users: 
  -
-  method: 'imsi' #other auth method: IP, SPA, ...
-  user: '310170845466094'
+  method: 'ip' #other auth method: IP, SPA, ...
+  user: '10.0.0.251'
  -
   method: 'imsi'
   user: '5021301234567894'
@@ -22,6 +23,7 @@
  serviceName: "name2"
  ip: '10.0.1.1' 
  port: 12
+ ether_dst: "ff:ff:ff:ff:ff:ff"
  protocol: TCP
  allowed_users: 
  -
@@ -39,6 +41,7 @@
  serviceName: "name3"
  ip: '10.0.2.2' 
  port: 48
+ ether_dst: "ff:ff:ff:ff:ff:ff"
  protocol: TCP
  allowed_users: 
  -
@@ -56,6 +59,7 @@
  serviceName: "name4"
  ip: '10.0.3.3' 
  port: 27
+ ether_dst: "ff:ff:ff:ff:ff:ff"
  protocol: TCP
  allowed_users:
  -
