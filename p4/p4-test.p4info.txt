@@ -1,0 +1,88 @@
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 42272129
+    name: "my_ingress.forward"
+    alias: "forward"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.srcAddr"
+    bitwidth: 32
+    match_type: EXACT
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: EXACT
+  }
+  match_fields {
+    id: 3
+    name: "src_port"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "dst_port"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 23031804
+  }
+  action_refs {
+    id: 28045422
+  }
+  action_refs {
+    id: 28026995
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
+actions {
+  preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 28045422
+    name: "my_ingress.drop"
+    alias: "drop"
+  }
+}
+actions {
+  preamble {
+    id: 23031804
+    name: "my_ingress.ipv4_forward"
+    alias: "ipv4_forward"
+  }
+  params {
+    id: 1
+    name: "dstAddr"
+    bitwidth: 48
+  }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 16
+  }
+}
+actions {
+  preamble {
+    id: 28026995
+    name: "my_ingress.send_to_controller"
+    alias: "send_to_controller"
+  }
+}
+type_info {
+}

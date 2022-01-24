@@ -1,0 +1,19 @@
+-
+ serviceName: "name" #application name
+ ip: '10.0.0.3'
+ port: 80
+ allowed_users: 
+ -
+  method: 'imsi' #other auth method: IMSI, ...
+  user: "5021301234567894"
+  actual_ip: '10.0.0.4'
+ -
+  method: 'token' #other auth method: IP, SPA, ...
+  actual_ip: '10.0.0.1'
+  user: "abcdefghilmnopqrstuvz"
+ -
+  method: 'imsi'
+  user: '5021301234567894'
+  actual_ip: '10.0.0.6'
+    
+#...
