@@ -55,6 +55,7 @@ def mod_detector():
 def mod_manager():
     global policies_list
     global mac_addresses
+    global strict_entry_history
     tmp = policies_list
     getPolicies()
 
@@ -73,31 +74,17 @@ def mod_manager():
                 if policy.get("port") != policy_tmp.get("port"):
                     print("[!] PORT_MODIFICATIONS")
                     print("[!] Editing policies Port...")
-                    editPortPolicies(policy_tmp.get("ip"), policy_tmp.get("port")) #bidirectional entry not needed
+                    editPortPolicies(policy_tmp.get("ip"), policy.get("port"))
 
                 if policy.get("protocol") != policy_tmp.get("protocol"):
                     print("[!] PROTOCOL_MODIFICATIONS")
 
                 #UE checks
-                #add
+                #add -> no need to add entries
                 for ue in policy.get("allowed_users"):
                     if ue not in policy_tmp.get("allowed_users"):
                         print("[!] UE_MODIFICATIONS_ADD")
-                        stream = open("../orchestrator/ip_map.yaml", 'r')
-                        mapping = yaml.safe_load(stream)
-                        for service in mapping: #leverage on ip_map to get sport for bidirectional traffic
-                            if service.get("serviceName") == policy.get("serviceName") and service.get("ip") == policy.get("ip"): #same service and ip
-                                for user in service.get("allowed_users"):
-                                    if ue.get("method") == "ip" and user.get("actual_ip") == ue.get("user"): #ip already available; maybe not needed, but for the sake of completeness
-                                        addEntry(ue.get("actual_ip"), policy.get("ip"), policy.get("port"), user.get("sport"), mac_addresses[policy.get("ip")], 2)
-                                        #add bi-directional entry 
-                                        addEntry(policy.get("ip"), ue.get("actual_ip"), user.get("sport"), policy.get("port"), mac_addresses[user.get("actual_ip")], 1)
-                                    else:
-                                        if (user.get("method") == "imsi" and user.get("imsi") == ue.get("user")) or (user.get("method") == "token" and user.get("token") == ue.get("user")): #same method and same id (imsi or token)
-                                            addEntry(user.get("actual_ip"), policy.get("ip"), policy.get("port"), user.get("sport"), mac_addresses[policy.get("ip")], 2)
-                                            #add bi-directional entry 
-                                            addEntry(policy.get("ip"), user.get("actual_ip"), user.get("sport"), policy.get("port"), mac_addresses[user.get("actual_ip")], 1)
-                #del
+                #del -> need to delete previous entries
                 for ue in policy_tmp.get("allowed_users"):
                     if ue not in policy.get("allowed_users"):
                         print("[!] UE_MODIFICATIONS_DEL")
@@ -105,16 +92,15 @@ def mod_manager():
                             delUE(ue.get("user") , policy.get("ip"))
                             #del bi-directional entry
                             delUE(policy.get("ip"), ue.get("user"))
+
                         else: #imsi or token
                             stream = open("../orchestrator/ip_map.yaml", 'r')
                             mapping = yaml.safe_load(stream)
                             for service in mapping:
-                                if service.get("serviceName") == policy.get("serviceName") and service.get("ip") == policy.get("ip"): #same service and ip
+                                if service.get("serviceName") == policy.get("serviceName") and service.get("ip") == policy.get("ip") and str(service.get("port")) == str(policy.get("port")): #same service, ip and port
                                     for user in service.get("allowed_users"):
-                                        if (user.get("method") == "imsi" and user.get("imsi") == ue.get("user")) or (user.get("method") == "token" and user.get("token") == ue.get("user")): #same method and same id (imsi or token)
+                                        if user.get("method") == ue.get("method") and user.get("user") == ue.get("user"):
                                             delUE(user.get("actual_ip"), policy.get("ip"))
-                                            #del bi-directional entry
-                                            delUE(policy.get("ip"), user.get("actual_ip"))
 
                 if policy.get("tee") != policy_tmp.get("tee"):
                     print("[!] TEE_MODIFICATIONS")
@@ -130,10 +116,10 @@ def mod_manager():
 
                 break
 
-            if not found:
-                print("[!] Service not found")
-                print("[!] Deleting service policies...")
-                delPolicies(policy.get("ip"), policy.get("protocol"))
+        if not found:
+            print("[!] Service not found")
+            print("[!] Deleting service policies...")
+            delPolicies(policy_tmp.get("ip"))
 
     print("[!] New policies_list: ")
     print(policies_list)
@@ -152,29 +138,32 @@ def editIPPolicies(old_ip, new_ip, port):
     for dictionary in strict_entry_history:
         if dictionary["ip_dst"] == old_ip:
             dictionary["te"].delete()
+            print("[!] Previous entry deleted")
             addEntry(dictionary["ip_src"], new_ip, dictionary["dport"], dictionary["sport"], dictionary["dstAddr"], dictionary["egress_port"])
-            dictionary["ip_dst"] == new_ip
+            strict_entry_history.remove(dictionary)
 
-    for dictionary in strict_entry_history:
         if dictionary["ip_src"] == old_ip:
             dictionary["te"].delete()
+            print("[!] Previous entry deleted")
             addEntry(new_ip, dictionary["ip_dst"], dictionary["dport"], dictionary["sport"], dictionary["dstAddr"], dictionary["egress_port"])
-            dictionary["ip_src"] == new_ip
+            strict_entry_history.remove(dictionary)
 
-#edit service port (bidirectional entry not needed -> sport is not necessary)
+#edit service port
 def editPortPolicies(ip, new_port):
     global strict_entry_history
     for dictionary in strict_entry_history:
         if dictionary["ip_dst"] == ip:
+            print(dictionary)
             dictionary["te"].delete()
+            print("[!] Previous entry deleted")
             addEntry(dictionary["ip_src"], ip, new_port, dictionary["sport"], dictionary["dstAddr"], dictionary["egress_port"])
-            dictionary["dport"] == new_port
+            strict_entry_history.remove(dictionary)
 
-    for dictionary in strict_entry_history:
         if dictionary["ip_src"] == ip:
             dictionary["te"].delete()
+            print("[!] Previous entry deleted")
             addEntry(ip, dictionary["ip_dst"], dictionary["dport"], new_port, dictionary["dstAddr"], dictionary["egress_port"])
-            dictionary["sport"] == new_port
+            strict_entry_history.remove(dictionary)
 
 #delete a policy (old service, user not allowed anymore)
 def delUE(ue_ip, service_ip):
@@ -182,11 +171,12 @@ def delUE(ue_ip, service_ip):
     for dictionary in strict_entry_history:
         if dictionary["ip_src"] == ue_ip and dictionary["ip_dst"] == service_ip:
             dictionary["te"].delete()
+            print("[!] Previous entry deleted")
             strict_entry_history.remove(dictionary)
 
-    for dictionary in strict_entry_history:
         if dictionary["ip_src"] == service_ip and dictionary["ip_dst"] == ue_ip:
             dictionary["te"].delete()
+            print("[!] Previous entry deleted")
             strict_entry_history.remove(dictionary)
 
 #add a new tmp "open" entry
@@ -205,17 +195,19 @@ def addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src):
 
     def entry_timeout(ip_dst, ip_src, port, ether_src):
         global open_entry_history
-        timeout = time.time() + 10.0 #2 sec or more
+        print("[!] Countdown started")
+        timeout = time.time() + 5.0 #5 sec or more
         while True:
             entry = {}
             found = False
             for dictionary in open_entry_history:
-                if dictionary["ip_dst"] == ip_dst and dictionary["ip_src"] == ip_src and dictionary["port"] == port and dictionary["ether_src"] == ether_src:
+                if dictionary["ip_dst"] == ip_dst and dictionary["ip_src"] == ip_src and dictionary["port"] == str(port) and dictionary["ether_src"] == ether_src:
                     entry = dictionary
                     found = True
 
             #open entry has been deleted
             if not found:
+                print("[!] Open entry has been deleted")
                 break
 
             if timeout - time.time() <= 0.0:
@@ -224,6 +216,7 @@ def addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src):
                 open_entry_history.remove(entry)
                 print("[!] Open entry deleted, timeout")
                 break
+        return
 
     open_entry_timeout = threading.Thread(target = entry_timeout, args = (ip_dst, ip_src, port, ether_src,)).start()
 
