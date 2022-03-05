@@ -13,8 +13,8 @@
       "id" : 1,
       "fields" : [
         ["ingress_port", 9, false],
-        ["egress_spec", 16, false],
-        ["egress_port", 16, false],
+        ["egress_spec", 9, false],
+        ["egress_port", 9, false],
         ["instance_type", 32, false],
         ["packet_length", 32, false],
         ["enq_timestamp", 32, false],
@@ -28,7 +28,7 @@
         ["checksum_error", 1, false],
         ["parser_error", 32, false],
         ["priority", 3, false],
-        ["_padding", 5, false]
+        ["_padding", 3, false]
       ]
     },
     {
@@ -289,7 +289,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "p4-test.p4",
-        "line" : 221,
+        "line" : 220,
         "column" : 8,
         "source_fragment" : "my_deparser"
       },
@@ -341,7 +341,7 @@
         },
         {
           "name" : "port",
-          "bitwidth" : 16
+          "bitwidth" : 9
         }
       ],
       "primitives" : [
@@ -401,48 +401,6 @@
             "column" : 8,
             "source_fragment" : "hdr.ethernet.dstAddr = dstAddr; ..."
           }
-        },
-        {
-          "op" : "assign",
-          "parameters" : [
-            {
-              "type" : "field",
-              "value" : ["ipv4", "ttl"]
-            },
-            {
-              "type" : "expression",
-              "value" : {
-                "type" : "expression",
-                "value" : {
-                  "op" : "&",
-                  "left" : {
-                    "type" : "expression",
-                    "value" : {
-                      "op" : "+",
-                      "left" : {
-                        "type" : "field",
-                        "value" : ["ipv4", "ttl"]
-                      },
-                      "right" : {
-                        "type" : "hexstr",
-                        "value" : "0xff"
-                      }
-                    }
-                  },
-                  "right" : {
-                    "type" : "hexstr",
-                    "value" : "0xff"
-                  }
-                }
-              }
-            }
-          ],
-          "source_info" : {
-            "filename" : "p4-test.p4",
-            "line" : 150,
-            "column" : 8,
-            "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
-          }
         }
       ]
     },
@@ -465,7 +423,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 154,
+            "line" : 153,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = 255"
           }
@@ -491,7 +449,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 154,
+            "line" : 153,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = 255"
           }
@@ -517,7 +475,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 154,
+            "line" : 153,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = 255"
           }
@@ -525,7 +483,7 @@
       ]
     },
     {
-      "name" : "p4test177",
+      "name" : "p4test176",
       "id" : 6,
       "runtime_data" : [],
       "primitives" : [
@@ -543,7 +501,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 177,
+            "line" : 176,
             "column" : 16,
             "source_fragment" : "src_port = hdr.tcp.srcPort"
           }
@@ -562,7 +520,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 178,
+            "line" : 177,
             "column" : 16,
             "source_fragment" : "dst_port = hdr.tcp.dstPort"
           }
@@ -570,7 +528,7 @@
       ]
     },
     {
-      "name" : "p4test182",
+      "name" : "p4test181",
       "id" : 7,
       "runtime_data" : [],
       "primitives" : [
@@ -588,7 +546,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 182,
+            "line" : 181,
             "column" : 16,
             "source_fragment" : "src_port = hdr.udp.srcPort"
           }
@@ -607,7 +565,7 @@
           ],
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 183,
+            "line" : 182,
             "column" : 16,
             "source_fragment" : "dst_port = hdr.udp.dstPort"
           }
@@ -628,11 +586,11 @@
       "init_table" : "node_2",
       "tables" : [
         {
-          "name" : "tbl_p4test177",
+          "name" : "tbl_p4test176",
           "id" : 0,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 177,
+            "line" : 176,
             "column" : 25,
             "source_fragment" : "= hdr.tcp.srcPort; ..."
           },
@@ -644,10 +602,10 @@
           "support_timeout" : false,
           "direct_meters" : null,
           "action_ids" : [6],
-          "actions" : ["p4test177"],
+          "actions" : ["p4test176"],
           "base_default_next" : "my_ingress.forward",
           "next_tables" : {
-            "p4test177" : "my_ingress.forward"
+            "p4test176" : "my_ingress.forward"
           },
           "default_entry" : {
             "action_id" : 6,
@@ -661,7 +619,7 @@
           "id" : 1,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 157,
+            "line" : 156,
             "column" : 10,
             "source_fragment" : "forward"
           },
@@ -714,11 +672,11 @@
           }
         },
         {
-          "name" : "tbl_p4test182",
+          "name" : "tbl_p4test181",
           "id" : 2,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 182,
+            "line" : 181,
             "column" : 25,
             "source_fragment" : "= hdr.udp.srcPort; ..."
           },
@@ -730,10 +688,10 @@
           "support_timeout" : false,
           "direct_meters" : null,
           "action_ids" : [7],
-          "actions" : ["p4test182"],
+          "actions" : ["p4test181"],
           "base_default_next" : "my_ingress.forward",
           "next_tables" : {
-            "p4test182" : "my_ingress.forward"
+            "p4test181" : "my_ingress.forward"
           },
           "default_entry" : {
             "action_id" : 7,
@@ -747,7 +705,7 @@
           "id" : 3,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 187,
+            "line" : 186,
             "column" : 16,
             "source_fragment" : "send_to_controller()"
           },
@@ -776,7 +734,7 @@
           "id" : 4,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 192,
+            "line" : 191,
             "column" : 12,
             "source_fragment" : "send_to_controller()"
           },
@@ -808,7 +766,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 175,
+            "line" : 174,
             "column" : 12,
             "source_fragment" : "hdr.ipv4.isValid()"
           },
@@ -831,7 +789,7 @@
           "id" : 1,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 176,
+            "line" : 175,
             "column" : 16,
             "source_fragment" : "hdr.tcp.isValid()"
           },
@@ -846,7 +804,7 @@
               }
             }
           },
-          "true_next" : "tbl_p4test177",
+          "true_next" : "tbl_p4test176",
           "false_next" : "node_6"
         },
         {
@@ -854,7 +812,7 @@
           "id" : 2,
           "source_info" : {
             "filename" : "p4-test.p4",
-            "line" : 181,
+            "line" : 180,
             "column" : 21,
             "source_fragment" : "hdr.udp.isValid()"
           },
@@ -869,7 +827,7 @@
               }
             }
           },
-          "true_next" : "tbl_p4test182",
+          "true_next" : "tbl_p4test181",
           "false_next" : "tbl_send_to_controller"
         }
       ]
@@ -879,7 +837,7 @@
       "id" : 1,
       "source_info" : {
         "filename" : "p4-test.p4",
-        "line" : 201,
+        "line" : 200,
         "column" : 8,
         "source_fragment" : "my_egress"
       },
@@ -935,4 +893,3 @@
     "version" : [2, 23],
     "compiler" : "https://github.com/p4lang/p4c"
   }
-}

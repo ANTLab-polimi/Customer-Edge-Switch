@@ -1,0 +1,45 @@
+from scapy.all import *
+import time
+from diffie_hellman_ue import dh
+import json
+from json import JSONEncoder
+import hmac, hashlib, base64
+
+controller_ip = '192.168.56.2'
+self_ip = "45.45.0.2"
+iface = 'oaitun_ue1'
+auth_port = 101
+
+class Auth():
+
+    def __init__(self, service_ip, method, authentication, port, protocol, imsi, count, version):
+        self.service_ip = service_ip
+        self.method = method
+        self.authentication = authentication
+        self.port = str(port)
+        self.protocol = protocol
+        self.imsi = imsi
+        self.count = count
+        self.version = version
+
+class MyEncoder(JSONEncoder):
+    def default(self, obj):
+        return obj.__dict__
+
+auth = Auth("192.169.56.2", "ip", "192.168.56.1", 80, "TCP", "302130123456789", 1, 1.0)
+auth = MyEncoder().encode(auth)
+key = dh("302130123456789")
+message_bytes = auth.encode('ascii')
+base64_bytes = base64.b64encode(message_bytes)
+hmac_hex = hmac.new(bytes(key, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
+msg = str(base64_bytes) + '---' + str(hmac_hex)
+
+packet = IP(dst=controller_ip, src=self_ip)/UDP(sport=1298, dport=auth_port)/msg
+
+sendp(packet, iface=iface)
+
+#test packet
+#print(time.time())
+#time.sleep(3)
+#packet = IP(dst=controller_ip, src=self_ip)/TCP(dport=80, sport=1298)
+#sendp(packet, iface=iface)

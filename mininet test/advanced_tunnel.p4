@@ -1,7 +1,7 @@
 #include <core.p4>
 #include <v1model.p4>
 
-const bit<16> TYPE_IPV4 = 0x0800;
+const bit<16> TYPE_IPV4 = 0x800;
 #define CONTROLLER_PORT 255
 
 
@@ -9,7 +9,8 @@ const bit<16> TYPE_IPV4 = 0x0800;
 
 typedef bit<48> EthernetAddress;
 typedef bit<32> ip4Addr_t;
-typedef bit<16> egressSpec_t;
+typedef bit<4>  dport;
+typedef bit<9>  egressSpec_t;
 
 header ethernet_t {
     EthernetAddress dstAddr;
@@ -32,27 +33,6 @@ header ipv4_t {
     ip4Addr_t dstAddr;
 }
 
-header tcp_t {
-    bit<16> srcPort;
-    bit<16> dstPort;
-    bit<32> seqNo;
-    bit<32> ackNo;
-    bit<4>  dataOffset;
-    bit<3>  res;
-    bit<3>  ecn;
-    bit<6>  ctrl;
-    bit<16> window;
-    bit<16> checksum;
-    bit<16> urgentPtr;
-}
-
-header udp_t {
-    bit<16> srcPort;
-    bit<16> dstPort;
-    bit<16> length_;
-    bit<16> checksum;
-}
-
 header packet_out_header_t {
     bit<16> egress_port;
 }
@@ -68,10 +48,8 @@ struct metadata_t {
 struct headers_t {
     packet_in_header_t  packet_in;
     packet_out_header_t packet_out;
-    ethernet_t       ethernet;
-    ipv4_t           ipv4;
-    tcp_t            tcp;
-    udp_t            udp;
+    ethernet_t          ethernet;
+    ipv4_t              ipv4;
 }
 
 error {
@@ -93,25 +71,13 @@ parser my_parser(packet_in packet,
 
     state parse_ethernet {
         packet.extract(hdr.ethernet);
-        transition parse_ipv4;
+        transition select(hdr.ethernet.etherType) {
+            TYPE_IPV4 : parse_ipv4;
+        }
     }
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
-        transition select(hdr.ipv4.protocol) {
-            6: parse_tcp;
-            17: parse_udp;
-            default: accept;
-        }
-    }
-
-    state parse_tcp {
-        packet.extract(hdr.tcp);
-        transition accept;
-    }
-
-    state parse_udp {
-        packet.extract(hdr.udp);
         transition accept;
     }
 }
@@ -132,9 +98,6 @@ control my_ingress(inout headers_t hdr,
                   inout metadata_t meta,
                   inout standard_metadata_t standard_metadata) {
 
-    bit<16> src_port = 0;
-    bit<16> dst_port = 0;
-
     action drop() {
         mark_to_drop(standard_metadata);
     }
@@ -144,25 +107,24 @@ control my_ingress(inout headers_t hdr,
         hdr.ethernet.dstAddr = dstAddr;
     }
 
-    action ipv4_forward(EthernetAddress dstAddr, egressSpec_t port) { 
+    action ipv4_forward(egressSpec_t port) {
         standard_metadata.egress_spec = port;
-        ethernet_forward(dstAddr);
+        /*ethernet_forward(dstAddr);*/
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
     action send_to_controller(){
         standard_metadata.egress_spec = CONTROLLER_PORT;
     }
 
-    table forward {
+
+    table ipv4_exact {
         key = {
             hdr.ipv4.srcAddr: exact;
             hdr.ipv4.dstAddr: exact;
-            src_port: ternary;
-            dst_port: exact;
         }
         actions = {
             ipv4_forward;
-            drop;
             send_to_controller;
             NoAction;
         }
@@ -172,25 +134,10 @@ control my_ingress(inout headers_t hdr,
 
     apply {
         if (hdr.ipv4.isValid()) {
-            if (hdr.tcp.isValid()){
-                src_port = hdr.tcp.srcPort;
-                dst_port = hdr.tcp.dstPort;
-                forward.apply();
-            }
-            else if (hdr.udp.isValid()){
-                src_port = hdr.udp.srcPort;
-                dst_port = hdr.udp.dstPort;
-                forward.apply();
-            }
-            else{
-                send_to_controller();
-                /*drop();*/
-            }
+            ipv4_exact.apply();
         }
-        else {
-            send_to_controller();
-            /*drop();*/
-        }
+        else
+            drop();
     }
 }
 
@@ -223,8 +170,6 @@ control my_deparser(packet_out packet, in headers_t hdr) {
         packet.emit(hdr.packet_out);
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
-        packet.emit(hdr.tcp);
-        packet.emit(hdr.udp);
     }
 }
 

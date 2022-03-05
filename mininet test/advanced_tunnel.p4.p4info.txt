@@ -3,9 +3,9 @@ pkg_info {
 }
 tables {
   preamble {
-    id: 42272129
-    name: "my_ingress.forward"
-    alias: "forward"
+    id: 35580470
+    name: "my_ingress.ipv4_exact"
+    alias: "ipv4_exact"
   }
   match_fields {
     id: 1
@@ -19,23 +19,8 @@ tables {
     bitwidth: 32
     match_type: EXACT
   }
-  match_fields {
-    id: 3
-    name: "src_port"
-    bitwidth: 16
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 4
-    name: "dst_port"
-    bitwidth: 16
-    match_type: EXACT
-  }
   action_refs {
     id: 23031804
-  }
-  action_refs {
-    id: 28045422
   }
   action_refs {
     id: 28026995
@@ -68,13 +53,8 @@ actions {
   }
   params {
     id: 1
-    name: "dstAddr"
-    bitwidth: 48
-  }
-  params {
-    id: 2
     name: "port"
-    bitwidth: 16
+    bitwidth: 9
   }
 }
 actions {

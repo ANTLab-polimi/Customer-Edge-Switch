@@ -1,0 +1,121 @@
+ENV['VAGRANT_NO_PARALLEL'] = 'yes'
+
+#k3s master ip
+master_ip = "192.169.56.2"
+
+Vagrant.configure("2") do |config|
+
+  #configure free5gc
+  config.vm.define "hydrogen" do |h|
+    h.vm.box = "bento/ubuntu-18.04"
+    h.vm.hostname = 'hydrogen'
+    #h.disksize.size = '50GB'
+    #h.vm.box_url = "ubuntu/precise64"
+
+    h.vm.network :private_network, ip: "192.168.56.1"
+
+    h.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 8192]
+      v.customize ["modifyvm", :id, "--name", "hydrogen"]
+      v.cpus = 8
+    end
+
+    h.vm.provision "shell" , path: "provision-free5g.sh"
+  end
+
+  #configure k3s master
+  config.vm.define "helium" do |h|
+    h.vm.box = "bento/ubuntu-18.04"
+    h.vm.hostname = 'helium'
+    #h.disksize.size = '50GB'
+    #h.vm.box_url = "ubuntu/precise64"
+
+    h.vm.network :private_network, ip: master_ip, netmask: "255.255.255.0", auto_config: true
+
+    h.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 2048]
+      v.customize ["modifyvm", :id, "--name", "helium"]
+      v.cpus = 4
+    end
+  end
+
+  #config agent
+  config.vm.define "lithium" do |l|
+    l.vm.box = "bento/ubuntu-18.04"
+    l.vm.hostname = 'lithium'
+    #h.disksize.size = '50GB'
+    #h.vm.box_url = "ubuntu/precise64"
+    private_ip = "192.169.56.3"
+
+    l.vm.network :private_network, ip: private_ip, netmask: "255.255.255.0", auto_config: true
+
+    l.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 2048]
+      v.customize ["modifyvm", :id, "--name", "lithium"]
+      v.cpus = 4
+    end
+  end
+
+
+end
+
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "bento/ubuntu-20.04"
+
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+  config.vm.hostname = "p4"
+  config.vm.provision "file", source: "p4-logo.png",   destination: "/home/vagrant/p4-logo.png"
+  config.vm.provision "file", source: "p4_16-mode.el", destination: "/home/vagrant/p4_16-mode.el"
+  config.vm.provision "file", source: "p4.vim",        destination: "/home/vagrant/p4.vim"
+
+  config.vm.define "dev", autostart: false do |dev|
+    dev.vm.provider "virtualbox" do |v|
+      v.name = "P4 Tutorial Development" + Time.now.strftime(" %Y-%m-%d")
+    end
+    dev.vm.provision "file", source: "py3localpath.py", destination: "/home/vagrant/py3localpath.py"
+    dev.vm.provision "shell", inline: "chmod 755 /home/vagrant/py3localpath.py"
+    dev.vm.provision "file", source: "patches/disable-Wno-error-and-other-small-changes.diff", destination: "/home/vagrant/patches/disable-Wno-error-and-other-small-changes.diff"
+    dev.vm.provision "file", source: "patches/behavioral-model-use-correct-libssl-pkg.patch", destination: "/home/vagrant/patches/behavioral-model-use-correct-libssl-pkg.patch"
+    dev.vm.provision "file", source: "patches/mininet-dont-install-python2.patch", destination: "/home/vagrant/patches/mininet-dont-install-python2.patch"
+    dev.vm.provision "file", source: "clean.sh", destination: "/home/vagrant/clean.sh"
+    dev.vm.provision "shell", inline: "chmod 755 /home/vagrant/clean.sh"
+    dev.vm.provision "shell", path: "root-dev-bootstrap.sh"
+    dev.vm.provision "shell", path: "root-common-bootstrap.sh"
+    dev.vm.provision "shell", privileged: false, path: "user-dev-bootstrap.sh"
+    dev.vm.provision "shell", privileged: false, path: "user-common-bootstrap.sh"
+  end
+
+  config.vm.define "release", primary: true do |bmv2|
+    bmv2.vm.network :private_network, ip: "192.168.56.2"
+    bmv2.vm.network :private_network, ip: "192.169.56.4"
+    bmv2.vm.provider "virtualbox" do |v|
+      v.name = "P4 Tutorial Release" + Time.now.strftime(" %Y-%m-%d")
+    end
+    bmv2.vm.provision "shell", path: "root-release-bootstrap.sh"
+    bmv2.vm.provision "shell", path: "root-common-bootstrap.sh"
+    bmv2.vm.provision "shell", privileged: false, path: "user-common-bootstrap.sh"
+  end
+
+  config.vm.provider "virtualbox" do |vb|
+    #vb.gui = true
+    vb.memory = 2048
+    vb.cpus = 2
+    vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    vb.customize [
+      "storageattach", :id,
+      "--storagectl", "IDE Controller",
+      "--port", "0",
+      "--device", "0",
+      "--type", "dvddrive",
+      "--medium", "emptydrive"
+    ]
+    vb.customize ["modifyvm", :id, "--vram", "32"]
+  end
+
+end

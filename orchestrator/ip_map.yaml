@@ -4,11 +4,11 @@
  port: 80
  allowed_users: 
  -
-  method: 'imsi' #other auth method: IMSI, ...
+  method: 'imsi' #other auth method: IP, SPA, ...
   user: "5021301234567894"
   actual_ip: '10.0.0.4'
  -
-  method: 'token' #other auth method: IP, SPA, ...
+  method: 'token'
   actual_ip: '10.0.0.1'
   user: "abcdefghilmnopqrstuvz"
  -

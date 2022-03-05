@@ -1,0 +1,9 @@
+10.0.2.15 10.0.2.3 53
+10.0.1.1 10.0.2.2 08:00:00:00:02:22 porta 
+aaaaaaaaaaa servizio 5 
+bbbbbbbbbbbbbbbbbbb servizio 10
+ldkjhfskljhaslòf servizio 15
+ASLDKEHJo<8ue4290 servizio 20
+sjdksujd servizio 25
+ciao servizio 30
+src dst dst_ethernet
