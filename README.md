@@ -47,6 +47,21 @@ Verify the connection to internet (for example, through oaitun_ue1 interface):
 ping 8.8.8.8 -I oaitun_ue1
 ```
 
+Install p4runtime-shell, inotify and scapy modules inside BMV2 vm:
+```
+sudo pip3 install p4runtime-shell && sudo pip3 install inotify && sudo pip3 install scapy
+```
+
+Install pip3 and scapy module inside dst vm:
+```
+sudo apt-get install -y python3-pip 
+sudo pip3 install scapy
+```
+
+Finally, git clone this repository in each vm:
+```
+git clone https://github.com/FrancescoBattagin/CES
+```
 
 ## Test authentication and authorization
 
@@ -104,24 +119,16 @@ cd CES/tests/ && sudo python3 arp_dst_test.py
 
 Inside UE container run:
 ```
-sudo python3 udp_tcp_src_test.py
+sudo python3 authen_author_src_test.py
 ```
 
-This scripts simulates the authentication (a key-exchange through Diffie-Hellman) and authorization process (an authorization packet) between the controller and the UE, who wants to have access to a specific service (whose entrypoint is the IP address of dst vm, and dport is 80).
+This scripts simulates the authentication (a key-exchange through Diffie-Hellman, with diffie_hellman_ue.py script) and authorization process between the controller and the UE, who wants to have access to a specific service (whose entrypoint is the IP address of dst vm, and dport is 80).
 
-An "open" entry (which doesn't care about TCP source port) will be installed on the BMV2 switch and, when a "reply" packet from dst will be received, the "open" entry will be substituted by two "strict" entries (traffic is now legitimated from ue to dst and viceversa).
-
-To check if everything is ok and to install the "strict" entries (before controller timeout), it is possible to run netcat on both vms, as follows:
-* Inside dst vm run:
-	```
-	sudo nc -l 0.0.0.0 80
-	```
-* Inside ue container run:
-	```
-	sudo nc -p 1298 192.169.56.2 80
-	```
-Then, try to send a message from ue to the nc server; it will be displayed.
-The same will happen if a message is sent from the server. 
+An "open" entry (which doesn't care about TCP source port) will be installed on the BMV2 switch and, when a "reply" packet (SYN-ACK) from dst will be received, the "open" entry will be substituted by two "strict" entries (traffic is now legitimated from ue to dst and viceversa).
+To check if everything is ok, authen_author_src_test.py script sends also a test.txt file to dst. To generate it, inside UE container run:
+```
+dd if=/dev/zero of=test.txt count=1024 bs=1024
+```
 
 
 ## Warning

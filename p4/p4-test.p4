@@ -9,7 +9,7 @@ const bit<16> TYPE_IPV4 = 0x0800;
 
 typedef bit<48> EthernetAddress;
 typedef bit<32> ip4Addr_t;
-typedef bit<16> egressSpec_t;
+typedef bit<9> egressSpec_t;
 
 header ethernet_t {
     EthernetAddress dstAddr;
@@ -144,7 +144,7 @@ control my_ingress(inout headers_t hdr,
         hdr.ethernet.dstAddr = dstAddr;
     }
 
-    action ipv4_forward(EthernetAddress dstAddr, egressSpec_t port) { 
+    action ipv4_forward(EthernetAddress dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
         ethernet_forward(dstAddr);
     }

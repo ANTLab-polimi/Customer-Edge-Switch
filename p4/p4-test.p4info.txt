@@ -74,7 +74,7 @@ actions {
   params {
     id: 2
     name: "port"
-    bitwidth: 16
+    bitwidth: 9
   }
 }
 actions {
