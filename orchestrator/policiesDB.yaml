@@ -3,13 +3,13 @@
 #policies:
 -
  serviceName: "serviceName" #application name
- ip: '10.0.0.3' #service IP
+ ip: '192.169.56.2' #service IP
  port: 80 #service port
  protocol: TCP #protocol
  allowed_users: 
  -
   method: 'ip' #other auth method: IMSI, SPA, ...
-  user: '10.0.0.2'
+  user: '192.168.56.1'
  -
   method: 'token'
   user: 'abcdefghilmnopqrstuvz'
@@ -19,7 +19,7 @@
  sec_boot: True #secure boot
 
 -
- serviceName: "name2"
+ serviceName: "servicename2"
  ip: '10.0.1.1' 
  port: 12
  protocol: TCP
@@ -36,7 +36,7 @@
  sec_boot: True
 
 -
- serviceName: "name3"
+ serviceName: "servicename3"
  ip: '10.0.2.2' 
  port: 48
  protocol: TCP
@@ -53,7 +53,7 @@
  sec_boot: True
 
 -
- serviceName: "name4"
+ serviceName: "servicename4"
  ip: '10.0.3.3' 
  port: 27
  protocol: TCP

@@ -130,12 +130,25 @@ To check if everything is ok, authen_author_src_test.py script sends also a test
 dd if=/dev/zero of=test.txt count=1024 bs=1024
 ```
 
-
 ## Warning
 UE container is unstable. Sometimes UEs' interfaces lose connectivity or they disappear at all.
 Just rerun ansible playbook script inside hydrogen vm.
 ```
 sudo ansible-playbook -K Demo2Exp1.yml  -e  "internet_network_interface=<< internet network interface name>>"
+```
+
+
+After some recreations of the environment, apt cache can give some problems; in those case, it it possible to 
+```
+sudo apt-get clean
+```
+and to change those tasks inside Demo2Exp1.yaml ansible playbook with
+```
+update_cache: yes
+```
+in
+```
+update_cache: no
 ```
 
 

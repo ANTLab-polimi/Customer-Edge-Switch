@@ -3,9 +3,7 @@ import socket
 FORMAT = "utf-8"
 SIZE = 1024
 
-def send(s):
-    client = s
-    
+def send(client):   
     #opening and reading the file data
     file = open("test.txt", "r")
     data = file.read()
@@ -15,7 +13,8 @@ def send(s):
     
     #sending the file data to the server
     client.send(data.encode(FORMAT))
-    
+    print("File sent")
+
     #closing the file
     file.close()
     
@@ -23,5 +22,5 @@ def send(s):
     client.close()
 
 
-if __name__ == "__main__":
-    main()
+
+

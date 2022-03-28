@@ -9,7 +9,8 @@ import socket
 controller_ip = '192.168.56.2'
 self_ip = "45.45.0.2"
 key = ''
-key_port = 74
+key_port = 100
+source_port = 91 #used to specify source iface
 iface = "oaitun_ue1"
 
 def isPrime(k):
@@ -24,7 +25,7 @@ def isPrime(k):
 def netcat(hostname, port, content, a, p):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print("DH AT: " + str(time.time()))
-    s.bind(("45.45.0.2", key_port))
+    s.bind(("45.45.0.2", source_port))
     s.connect((hostname, port))
     s.send(content)
     time.sleep(0.1)

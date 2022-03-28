@@ -1,6 +1,9 @@
+#Here is a tuple used as a test; each specific tuple maps an allowed 
+#user, whose auth method is 'imsi' or 'token', with its specific IP address 
+
 -
- serviceName: "name" #application name
- ip: '10.0.0.3'
+ serviceName: "serviceName" #application name
+ ip: '192.169.56.2'
  port: 80
  allowed_users: 
  -
@@ -9,11 +12,11 @@
   actual_ip: '10.0.0.4'
  -
   method: 'token'
-  actual_ip: '10.0.0.1'
+  actual_ip: '192.168.56.5'
   user: "abcdefghilmnopqrstuvz"
  -
   method: 'imsi'
-  user: '5021301234567894'
-  actual_ip: '10.0.0.6'
+  user: '111111111111111'
+  actual_ip: '192.168.56.5'
     
 #...

@@ -1,7 +1,7 @@
 import socket
 import sys
 import time
-import tqdm
+#import tqdm
 import os
 
 HOST = "0.0.0.0"
@@ -17,14 +17,17 @@ while True:
     with conn:
         while True:
             print("Connected at: " + str(time.time()))
-            """ Receiving the filename from the client. """
+            
+            #Receiving the filename from the client
             filename = conn.recv(SIZE).decode(FORMAT)
             print(f"[RECV] Receiving the filename.")
             file = open(filename, "w")
-            """ Receiving the file data from the client. """
+            
+            #Receiving the file data from the client
             data = conn.recv(SIZE).decode(FORMAT)
             print(f"[RECV] Receiving the file data.")
             file.write(data)
-            """ Closing the file. """
+            
+            #Closing the file
             file.close()
             print("File received at: " + str(time.time()))

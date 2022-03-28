@@ -13,13 +13,13 @@ auth_port = 101
 
 def netcat(hostname, port, content, flag):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    if flag:
-        s.bind(("45.45.0.2", auth_port))
     s.connect((hostname, port))
     if flag:
+        print("AUTH AT: " + str(time.time()))
         s.send(content)
         s.close()
     else:
+        print("CONN AT: " + str(time.time()))
         send(s)
 
 class Auth():
@@ -39,6 +39,8 @@ class MyEncoder(JSONEncoder):
         return obj.__dict__
 
 auth = Auth("192.169.56.2", "ip", "192.168.56.1", 80, "TCP", "302130123456789", 1, 1.0)
+#auth = Auth("192.169.56.2", "imsi", "111111111111111", 80, "TCP", "111111111111111", 1, 1.0)
+#auth = Auth("192.169.56.2", "token", "abcdefghilmnopqrstuvz", 80, "TCP", "111111111111111", 1, 1.0)
 auth = MyEncoder().encode(auth)
 key = dh("302130123456789")
 message_bytes = auth.encode('ascii')
