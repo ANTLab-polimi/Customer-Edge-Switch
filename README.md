@@ -9,16 +9,16 @@ This way it is possible to perform authentication and authorization processes, i
 
 git clone this repository:
 ```
-git clone https://github.com/FrancescoBattagin/CES
+git clone https://github.com/ANTLab-polimi/Customer-Edge-Switch.git
 ```
 
-In provision-free5g.sh, Edit: 
+In vm/provision-free5g.sh, Edit: 
 * The $INTERFACE variable, pointing to the name of the interface that provides internet connection.
 * The root password used by ansible-playbook (within the --extra-vars argument)
 
 To create the complete environment, run:
 ```
-vagrant up
+cd vm && vagrant up
 ```
 The process will take some minutes.
 
@@ -60,12 +60,12 @@ sudo pip3 install scapy
 
 Finally, git clone this repository in each vm:
 ```
-git clone https://github.com/FrancescoBattagin/CES
+git clone https://github.com/ANTLab-polimi/Customer-Edge-Switch.git
 ```
 
 ## Test authentication and authorization
 
-First of all, it is necessary to set the default gateway of free5gc and dst vms to the specific BMV2 interfaces belonging to the private networks.
+First, it is necessary to set the default gateway of free5gc and dst vms to the specific BMV2 interfaces belonging to the private networks.
 
 SSH to the free5gc vm and set default gw:
 ```
@@ -92,7 +92,7 @@ sudo simple_switch_grpc --log-console --no-p4 --device-id 1 -i 1@eth1 -i 2@eth2 
 
 Inside another terminal, run orchestrator:
 ```
-cd CES/orchestrator && sudo python3 orchestrator.py
+cd Customer-Edge-Switch/orchestrator && sudo python3 orchestrator.py
 ```
 It will wait for incoming packets.
 
@@ -104,7 +104,7 @@ vagrant ssh hydrogen
 
 Send a gratuitous ARP to BMV2 vm:
 ```
-cd CES/tests/ && sudo python3 arp_src_test.py
+cd Customer-Edge-Switch/tests/ && sudo python3 arp_src_test.py
 ```
 Then enter UE container:
 ```
@@ -114,7 +114,7 @@ sudo docker exec -it ue bash
 Send another gratuitous ARP to controller from dst vm:
 ```
 vagrant ssh helium
-cd CES/tests/ && sudo python3 arp_dst_test.py
+cd Customer-Edge-Switch/tests/ && sudo python3 arp_dst_test.py
 ```
 
 Inside UE container run:
