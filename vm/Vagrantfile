@@ -1,44 +1,57 @@
 ENV['VAGRANT_NO_PARALLEL'] = 'yes'
 
 #k3s master ip
-master_ip = "192.169.56.2"
+master_ip = "192.168.56.6"
 
 Vagrant.configure("2") do |config|
 
   #configure free5gc
   config.vm.define "hydrogen" do |h|
-    h.vm.box = "bento/ubuntu-18.04"
+    h.vm.box = "bento/ubuntu-20.04"
     h.vm.hostname = 'hydrogen'
     #h.disksize.size = '50GB'
     #h.vm.box_url = "ubuntu/precise64"
 
-    h.vm.network :private_network, ip: "192.168.56.1"
+    # commented because I have to try the auth test with the switch on
+    #h.vm.network :private_network, ip: "192.168.56.1", netmask:"255.255.255.252" #\30
+    h.vm.network "private_network", virtualbox__intnet: "intnet-1", auto_config: false
 
     h.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       v.customize ["modifyvm", :id, "--memory", 8192]
       v.customize ["modifyvm", :id, "--name", "hydrogen"]
       v.cpus = 8
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-vms"]
     end
 
+    h.vm.provision "file", source: "daemon.json", destination: "daemon.json"
     h.vm.provision "shell" , path: "provision-free5g.sh"
+
   end
 
   #configure k3s master
   config.vm.define "helium" do |h|
-    h.vm.box = "bento/ubuntu-18.04"
+    h.vm.box = "bento/ubuntu-20.04"
     h.vm.hostname = 'helium'
     #h.disksize.size = '50GB'
     #h.vm.box_url = "ubuntu/precise64"
 
-    h.vm.network :private_network, ip: master_ip, netmask: "255.255.255.0", auto_config: true
+    #h.vm.network :private_network, ip: master_ip, netmask: "255.255.255.0", auto_config: true
+    
+
+    # commented because I have to try the auth test with the switch on
+    #h.vm.network :private_network, ip: master_ip, netmask:"255.255.255.252" #\30
+    h.vm.network "private_network", virtualbox__intnet: "intnet-2", auto_config: false
+    #h.vm.network "forwarded_port", guest: 22, host: 2202, host_ip: "0.0.0.0", id: "ssh", auto_correct: true
 
     h.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       v.customize ["modifyvm", :id, "--memory", 2048]
       v.customize ["modifyvm", :id, "--name", "helium"]
       v.cpus = 4
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-vms"]
     end
+
   end
 
 end
@@ -53,9 +66,12 @@ Vagrant.configure(2) do |config|
   config.vm.hostname = "p4"
   
   config.vm.define "dev", autostart: false do |dev|
+
     dev.vm.provider "virtualbox" do |v|
       v.name = "P4 Tutorial Development" + Time.now.strftime(" %Y-%m-%d")
+
     end
+
     dev.vm.provision "file", source: "py3localpath.py", destination: "/home/vagrant/py3localpath.py"
     dev.vm.provision "shell", inline: "chmod 755 /home/vagrant/py3localpath.py"
     dev.vm.provision "file", source: "patches/disable-Wno-error-and-other-small-changes.diff", destination: "/home/vagrant/patches/disable-Wno-error-and-other-small-changes.diff"
@@ -67,17 +83,35 @@ Vagrant.configure(2) do |config|
     dev.vm.provision "shell", path: "root-common-bootstrap.sh"
     dev.vm.provision "shell", privileged: false, path: "user-dev-bootstrap.sh"
     dev.vm.provision "shell", privileged: false, path: "user-common-bootstrap.sh"
+
   end
 
+
   config.vm.define "release", primary: true do |bmv2|
-    bmv2.vm.network :private_network, ip: "192.168.56.2"
-    bmv2.vm.network :private_network, ip: "192.169.56.4"
+
+    # commented because I have to try the auth test with the switch on
+    #bmv2.vm.network :private_network, ip: "192.168.56.2", netmask:"255.255.255.252" #\30
+    bmv2.vm.network "private_network", virtualbox__intnet: "intnet-1", auto_config: false
+    
+    # commented because I have to try the auth test with the switch on
+    #bmv2.vm.network :private_network, ip: "192.168.56.5", netmask:"255.255.255.252" #\30
+    bmv2.vm.network "private_network", virtualbox__intnet: "intnet-2", auto_config: false
+
+
     bmv2.vm.provider "virtualbox" do |v|
       v.name = "P4 Tutorial Release" + Time.now.strftime(" %Y-%m-%d")
+
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-vms"]
+      v.customize ["modifyvm", :id, "--nicpromisc3", "allow-vms"]
+
     end
+     
+    bmv2.vm.provision "file", source: "p4_16-mode.el", destination: "p4_16-mode.el"
+    bmv2.vm.provision "file", source: "p4.vim", destination: "p4.vim"
     bmv2.vm.provision "shell", path: "root-release-bootstrap.sh"
     bmv2.vm.provision "shell", path: "root-common-bootstrap.sh"
     bmv2.vm.provision "shell", privileged: false, path: "user-common-bootstrap.sh"
+  
   end
 
   config.vm.provider "virtualbox" do |vb|
@@ -94,6 +128,7 @@ Vagrant.configure(2) do |config|
       "--medium", "emptydrive"
     ]
     vb.customize ["modifyvm", :id, "--vram", "32"]
+
   end
 
 end

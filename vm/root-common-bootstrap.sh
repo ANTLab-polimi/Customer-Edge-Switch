@@ -3,14 +3,18 @@
 # Print commands and exit on errors
 set -xe
 
-useradd -m -d /home/p4 -s /bin/bash p4
+# if commented it's due to a re-run
+if [ ! -e /home/p4 ]; then
+	useradd -m -d /home/p4 -s /bin/bash p4
+fi
+# if commented, it's due to a problem after the first run
 echo "p4:p4" | chpasswd
 echo "p4 ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/99_p4
 chmod 440 /etc/sudoers.d/99_p4
 usermod -aG vboxsf p4
 
 # Install p4 logo as wallpaper
-mv /home/vagrant/p4-logo.png /usr/share/lubuntu/wallpapers/lubuntu-default-wallpaper.png
+#mv /home/vagrant/p4-logo.png /usr/share/lubuntu/wallpapers/lubuntu-default-wallpaper.png
 
 # 2021-Mar-06 this command failed with an error that the file did not exist.
 #sed -i s@#background=@background=/usr/share/lubuntu/wallpapers/1604-lubuntu-default-wallpaper.png@ /etc/lightdm/lightdm-gtk-greeter.conf

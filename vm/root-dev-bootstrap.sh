@@ -6,8 +6,10 @@ set -xe
 # Atom install steps came from this page on 2020-May-11:
 # https://flight-manual.atom.io/getting-started/sections/installing-atom/#platform-linux
 
-wget -qO - https://packagecloud.io/AtomEditor/atom/gpgkey | apt-key add -
-sh -c 'echo "deb [arch=amd64] https://packagecloud.io/AtomEditor/atom/any/ any main" > /etc/apt/sources.list.d/atom.list'
+
+
+# wget -qO - https://packagecloud.io/AtomEditor/atom/gpgkey | apt-key add -
+# sh -c 'echo "deb [arch=amd64] https://packagecloud.io/AtomEditor/atom/any/ any main" > /etc/apt/sources.list.d/atom.list'
 # These commands are done later below
 #apt-get update
 #apt-get install atom
