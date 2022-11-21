@@ -7,11 +7,11 @@ from json import JSONEncoder
 import socket
 
 controller_ip = '192.168.56.2'
-self_ip = "45.45.0.2"
+self_ip = "192.187.3.254"
 key = ''
 key_port = 100
 source_port = 91 #used to specify source iface
-iface = "oaitun_ue1"
+iface = "eth0"
 
 def isPrime(k):
     if k==2 or k==3: return True
@@ -24,8 +24,7 @@ def isPrime(k):
 
 def netcat(hostname, port, content, a, p):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("DH AT: " + str(time.time()))
-    s.bind(("45.45.0.2", source_port))
+    s.bind((self_ip, source_port))
     s.connect((hostname, port))
     s.send(content)
     time.sleep(0.1)
@@ -75,7 +74,7 @@ def dh(identity):
     #[...] sends p, g, A to controller, waits for B
     dh = DH(p, g, A, imsi, 1.0)
     dh = MyEncoder().encode(dh)
-    netcat("192.168.56.2", key_port, bytes(dh, 'utf-8'), a, p)
+    netcat(controller_ip, key_port, bytes(dh, 'utf-8'), a, p)
     return key
 
 #--- controller ---

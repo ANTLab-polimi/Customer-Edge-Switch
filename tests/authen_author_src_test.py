@@ -7,9 +7,11 @@ import hmac, hashlib, base64
 from send_file import send
 
 controller_ip = '192.168.56.2'
-self_ip = "45.45.0.2"
-iface = 'oaitun_ue1'
+self_ip = "192.187.3.254"
+dst_ip = "192.168.56.6"
+iface = 'eth0'
 auth_port = 101
+http_port = 80
 
 def netcat(hostname, port, content, flag):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -38,7 +40,7 @@ class MyEncoder(JSONEncoder):
     def default(self, obj):
         return obj.__dict__
 
-auth = Auth("192.169.56.2", "ip", "192.168.56.1", 80, "TCP", "302130123456789", 1, 1.0)
+auth = Auth("192.169.56.2", "ip", self_ip, 80, "TCP", "302130123456789", 1, 1.0)
 #auth = Auth("192.169.56.2", "imsi", "111111111111111", 80, "TCP", "111111111111111", 1, 1.0)
 #auth = Auth("192.169.56.2", "token", "abcdefghilmnopqrstuvz", 80, "TCP", "111111111111111", 1, 1.0)
 auth = MyEncoder().encode(auth)
@@ -48,6 +50,7 @@ base64_bytes = base64.b64encode(message_bytes)
 hmac_hex = hmac.new(bytes(key, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
 msg = str(base64_bytes) + '---' + str(hmac_hex)
 
-netcat("192.168.56.2", auth_port, bytes(msg, 'utf-8'), True)
+netcat(controller_ip, auth_port, bytes(msg, 'utf-8'), True)
 time.sleep(0.1)
-netcat("192.169.56.2", 80, b"", False)
+print("Requesting connection with server...")
+netcat(dst_ip, http_port, b"Hello Helium!", False)
