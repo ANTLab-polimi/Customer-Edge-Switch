@@ -42,19 +42,29 @@ List all the UEs:
 ifconfig
 ```
 
-Verify the connection to internet (for example, through oaitun_ue1 interface):
+Verify the connection to internet (for example, through eth1 interface):
 ```
-ping 8.8.8.8 -I oaitun_ue1
+ping 8.8.8.8 -I eth1
+```
+
+Verify the DNS resolution:
+```
+ping google.com -I eth1
 ```
 
 Install p4runtime-shell, inotify and scapy modules inside BMV2 vm:
 ```
-sudo pip3 install p4runtime-shell && sudo pip3 install inotify && sudo pip3 install scapy
+sudo pip3 install p4runtime-shell inotify scapy
 ```
 
-Install pip3 and scapy module inside dst vm:
+Install pip3 and scapy module inside dst (helium) vm:
 ```
-sudo apt-get install -y python3-pip 
+sudo apt-get install -y python3-pip --fix-missing
+sudo pip3 install scapy
+```
+
+Install scapy module inside src (hydrogen) vm:
+```
 sudo pip3 install scapy
 ```
 
@@ -65,18 +75,25 @@ git clone https://github.com/ANTLab-polimi/Customer-Edge-Switch.git
 
 ## Test authentication and authorization
 
-First, it is necessary to set the default gateway of free5gc and dst vms to the specific BMV2 interfaces belonging to the private networks.
+First, it is necessary to set the IP addresses and the default gateway of free5gc (hydrogen) and dst (helium) vms to the specific BMV2 interfaces (release vm) belonging to the private networks.
 
-SSH to the free5gc vm and set default gw:
+In the Vagrantfile we have set up two private networks: one for the hydrogen-release and the second for the release-helium.
+In this way, we have client and server in two different network emulating a situation as closer as possible to the reality.
+
+Inside the directory Customer-Edge-Switch/vm, we need to connect towards SSH to the free5gc vm, setting the IP address and then setting the default gateway:
 ```
 vagrant ssh hydrogen
-sudo route add default gw 192.168.56.2
+sudo ip addr add 192.168.56.1/30 dev eth1
+sudo ip link set eth1 up
+sudo ip route add default via 192.168.56.2
 ```
 
 Do the same thing inside dst vm:
 ```
 vagrant ssh helium
-sudo route add default gw 192.169.56.4
+sudo ip addr add 192.168.56.6/30 dev eth1
+sudo ip link set eth1 up
+sudo ip route add default via 192.168.56.5
 ```
 
 Then the BMV2 switch can be started.
@@ -95,23 +112,24 @@ Inside another terminal, run orchestrator:
 cd Customer-Edge-Switch/orchestrator && sudo python3 orchestrator.py
 ```
 It will wait for incoming packets.
-
+Now we will start the protocol comunication!
 
 SSH to the free5gc vm:
 ```
 vagrant ssh hydrogen
 ```
 
-Send a gratuitous ARP to BMV2 vm:
+Send a gratuitous ARP to BMV2 vm from hydrogen vm:
 ```
 cd Customer-Edge-Switch/tests/ && sudo python3 arp_src_test.py
 ```
-Then enter UE container:
+
+Then enter UE container and start it displaying a bash to interact with it:
 ```
 sudo docker exec -it ue bash
 ```
 
-Send another gratuitous ARP to controller from dst vm:
+Send another gratuitous ARP to controller from dst (helium) vm:
 ```
 vagrant ssh helium
 cd Customer-Edge-Switch/tests/ && sudo python3 arp_dst_test.py
@@ -125,7 +143,8 @@ sudo python3 authen_author_src_test.py
 This scripts simulates the authentication (a key-exchange through Diffie-Hellman, with diffie_hellman_ue.py script) and authorization process between the controller and the UE, who wants to have access to a specific service (whose entrypoint is the IP address of dst vm, and dport is 80).
 
 An "open" entry (which doesn't care about TCP source port) will be installed on the BMV2 switch and, when a "reply" packet (SYN-ACK) from dst will be received, the "open" entry will be substituted by two "strict" entries (traffic is now legitimated from ue to dst and viceversa).
-To check if everything is ok, authen_author_src_test.py script sends also a test.txt file to dst. To generate it, inside UE container run:
+To check if everything is ok, authen_author_src_test.py script sends also a test.txt file to dst.
+To generate it, inside UE container run:
 ```
 dd if=/dev/zero of=test.txt count=1024 bs=1024
 ```
