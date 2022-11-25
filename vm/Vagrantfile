@@ -1,19 +1,19 @@
 ENV['VAGRANT_NO_PARALLEL'] = 'yes'
 
-#k3s master ip
+# k3s master ip
 master_ip = "192.168.56.6"
 
 Vagrant.configure("2") do |config|
 
-  #configure free5gc
+  # configure free5gc vm
   config.vm.define "hydrogen" do |h|
+    # warning: check always if the version of Ubuntu is at end of live...
     h.vm.box = "bento/ubuntu-20.04"
     h.vm.hostname = 'hydrogen'
     #h.disksize.size = '50GB'
     #h.vm.box_url = "ubuntu/precise64"
 
-    # commented because I have to try the auth test with the switch on
-    #h.vm.network :private_network, ip: "192.168.56.1", netmask:"255.255.255.252" #\30
+    # to create a private network with the name intnet-1, auto-config false because we will set the IPs and the network by ourself
     h.vm.network "private_network", virtualbox__intnet: "intnet-1", auto_config: false
 
     h.vm.provider :virtualbox do |v|
@@ -24,25 +24,25 @@ Vagrant.configure("2") do |config|
       v.customize ["modifyvm", :id, "--nicpromisc2", "allow-vms"]
     end
 
+    # to provide files and shell script, we need to act on the Vagrantfile giving the local path and the future path on the vagrant machine
     h.vm.provision "file", source: "daemon.json", destination: "daemon.json"
     h.vm.provision "shell" , path: "provision-free5g.sh"
 
+    # to share the directory where the repo is set in (passing the local path and the future path in the vagrant machine)
+    h.vm.synced_folder "../../Customer-Edge-Switch", "/home/vagrant/Customer-Edge-Switch"
+
   end
 
-  #configure k3s master
+  # configure k3s master
   config.vm.define "helium" do |h|
+    # warning: check always if the version of Ubuntu is at end of live...
     h.vm.box = "bento/ubuntu-20.04"
     h.vm.hostname = 'helium'
     #h.disksize.size = '50GB'
     #h.vm.box_url = "ubuntu/precise64"
 
-    #h.vm.network :private_network, ip: master_ip, netmask: "255.255.255.0", auto_config: true
-    
-
-    # commented because I have to try the auth test with the switch on
-    #h.vm.network :private_network, ip: master_ip, netmask:"255.255.255.252" #\30
+    # to create a private network with the name intnet-2, auto-config false because we will set the IPs and the network by ourself
     h.vm.network "private_network", virtualbox__intnet: "intnet-2", auto_config: false
-    #h.vm.network "forwarded_port", guest: 22, host: 2202, host_ip: "0.0.0.0", id: "ssh", auto_correct: true
 
     h.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
@@ -51,7 +51,9 @@ Vagrant.configure("2") do |config|
       v.cpus = 4
       v.customize ["modifyvm", :id, "--nicpromisc2", "allow-vms"]
     end
-
+    
+    # to share the directory where the repo is set in (passing the local path and the future path in the vagrant machine)
+    h.vm.synced_folder "../../Customer-Edge-Switch", "/home/vagrant/Customer-Edge-Switch"
   end
 
 end
@@ -89,12 +91,14 @@ Vagrant.configure(2) do |config|
 
   config.vm.define "release", primary: true do |bmv2|
 
-    # commented because I have to try the auth test with the switch on
-    #bmv2.vm.network :private_network, ip: "192.168.56.2", netmask:"255.255.255.252" #\30
+    # to set a private network with an ip and a netmask
+    # bmv2.vm.network :private_network, ip: "192.168.56.2", netmask:"255.255.255.252" #\30
+    
+
+    # to create a private network with the name intnet-1, auto-config false because we will set the IPs and the network by ourself
     bmv2.vm.network "private_network", virtualbox__intnet: "intnet-1", auto_config: false
     
-    # commented because I have to try the auth test with the switch on
-    #bmv2.vm.network :private_network, ip: "192.168.56.5", netmask:"255.255.255.252" #\30
+    # to create a private network with the name intnet-2, auto-config false because we will set the IPs and the network by ourself
     bmv2.vm.network "private_network", virtualbox__intnet: "intnet-2", auto_config: false
 
 
@@ -106,12 +110,16 @@ Vagrant.configure(2) do |config|
 
     end
      
+    # to provide files and shell script, we need to act on the Vagrantfile giving the local path and the future path on the vagrant machine
     bmv2.vm.provision "file", source: "p4_16-mode.el", destination: "p4_16-mode.el"
     bmv2.vm.provision "file", source: "p4.vim", destination: "p4.vim"
     bmv2.vm.provision "shell", path: "root-release-bootstrap.sh"
     bmv2.vm.provision "shell", path: "root-common-bootstrap.sh"
     bmv2.vm.provision "shell", privileged: false, path: "user-common-bootstrap.sh"
   
+    # to share the directory where the repo is set in (passing the local path and the future path in the vagrant machine)
+    bmv2.vm.synced_folder "../../Customer-Edge-Switch", "/home/vagrant/Customer-Edge-Switch"
+
   end
 
   config.vm.provider "virtualbox" do |vb|
