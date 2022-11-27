@@ -1,3 +1,31 @@
+/***
+        The starting page from where this work is based:
+        https://opennetworking.org/news-and-events/blog/getting-started-with-p4/
+
+        ---- <> ---- <> ---- <> ---- <> ----
+
+        To compile this P4 program: p4c -b bmv2 p4-test.p4 -o test.bmv2
+        The -b option selects bmv2 (Behavioral Model Version 2) as the target,
+        which is the software switch that we will use to run the P4 program.
+
+        This compiler generates a directory test.bmv2 which contains a file test.json
+        which the generated “executable” code which is run by the software switch.
+
+        ---- <> ---- <> ---- <> ---- <> ----
+        
+        This program has a single lookup table, which does:
+            an exact match on the source IP address in the received packet
+            an exact match on the destination IP address in the received packet
+            a ternary match on the source port in the received packet
+            an exact match on the destination port in the received packet
+        
+        The actions are:
+            drop the packet,
+            forward the packet to a specific output port,
+            no action,
+            send the packet to the controller (default one)
+***/
+
 #include <core.p4>
 #include <v1model.p4>
 
@@ -130,7 +158,8 @@ control my_verify_checksum(inout headers_t hdr,
 
 control my_ingress(inout headers_t hdr,
                   inout metadata_t meta,
-                  inout standard_metadata_t standard_metadata) {
+                  inout standard_metadata_t standard_metadata)
+{
 
     bit<16> src_port = 0;
     bit<16> dst_port = 0;
