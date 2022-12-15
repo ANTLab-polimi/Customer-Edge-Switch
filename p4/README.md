@@ -1,4 +1,5 @@
-This README describe the structure of a p4 program and how it works.
+#INFORMATIONS ABOUT P4 PROGRAMMING
+This README describe the structure of a p4 program and how it works (with reference to the p4 part in the project).
 
 I'm using this page to structure this readme and the documentation of the p4 comunity:
 + https://opennetworking.org/news-and-events/blog/getting-started-with-p4/
@@ -16,6 +17,7 @@ After that, we need to compile it creating two different files:
 
 + the JSON file which is file the switch will compute
 + the ".p4i" file which contains all the API used to analyze the original written code in p4
++ the ".p4info" file which contains the description of the structure used in the p4 code
 
 (I'm consider the fact that we have already created all the interface and that all our (emulated or not) architecture is up and working...)
 

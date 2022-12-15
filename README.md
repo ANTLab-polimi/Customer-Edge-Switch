@@ -32,6 +32,11 @@ Verify that free5gc containers are running:
 sudo docker ps
 ```
 
+If its are not running, you need to restart all the containers with the follow command and check again if its are up now:
+```
+sudo docker restart ue enb webui pcrf hss smf upf amf mongodb-svc
+```
+
 Connect to the UE container:
 ```
 sudo docker exec -it ue bash
@@ -68,10 +73,7 @@ Install scapy module inside src (hydrogen) vm:
 sudo pip3 install scapy
 ```
 
-Finally, git clone this repository in each vm:
-```
-git clone https://github.com/ANTLab-polimi/Customer-Edge-Switch.git
-```
+There is no need to clone this repository in each vm, because thanks to the shared folder of Vagrant all the vm can see the updates done on the repository
 
 ## Test authentication and authorization
 
