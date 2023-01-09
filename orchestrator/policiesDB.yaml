@@ -1,22 +1,23 @@
-#Here is a list of policies used as a test; each specific policy is a tuple
+# Here is a list of policies used as a test; each specific policy is a tuple
+# to get start with the yaml file: https://docs.fileformat.com/programming/yaml/
 
-#policies:
+# policies:
 -
- serviceName: "serviceName" #application name
- ip: '192.169.56.2' #service IP
- port: 80 #service port
- protocol: TCP #protocol
+ serviceName: "serviceName" # application name
+ ip: '192.168.56.6' # service IP
+ port: 80 # service port
+ protocol: TCP # protocol
  allowed_users: 
  -
-  method: 'ip' #other auth method: IMSI, SPA, ...
+  method: 'ip' # other auth method: IMSI, SPA, ...
   user: '192.168.56.1'
  -
   method: 'token'
   user: 'abcdefghilmnopqrstuvz'
- tee: True #trusted execution environment
- fs_encr: False #file system encryption
- net_encr: False #network encryption
- sec_boot: True #secure boot
+ tee: True # trusted execution environment
+ fs_encr: False # file system encryption
+ net_encr: False # network encryption
+ sec_boot: True # secure boot
 
 -
  serviceName: "servicename2"
