@@ -29,7 +29,7 @@ tables {
     id: 4
     name: "dst_port"
     bitwidth: 16
-    match_type: EXACT
+    match_type: TERNARY
   }
   action_refs {
     id: 23031804
@@ -73,6 +73,11 @@ actions {
   }
   params {
     id: 2
+    name: "srcAddr"
+    bitwidth: 48
+  }
+  params {
+    id: 3
     name: "port"
     bitwidth: 9
   }

@@ -7,7 +7,7 @@ from json import JSONEncoder
 import socket
 
 controller_ip = '192.168.56.2'
-self_ip = "192.187.3.254"
+self_ip = "192.168.56.1"
 key = ''
 key_port = 100
 source_port = 91 #used to specify source iface
@@ -24,7 +24,7 @@ def isPrime(k):
 
 def netcat(hostname, port, content, a, p):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((self_ip, source_port))
+    #s.bind((self_ip, source_port))
     s.connect((hostname, port))
     s.send(content)
     time.sleep(0.1)
