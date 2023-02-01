@@ -24,22 +24,30 @@ def dst_test():
 
     s.bind((host, http_port))
     s.listen()
-    conn, addr = s.accept()
-    with conn:
-        try:
-            print(f"Connected by {addr}")
-            # loop to echo the data
-            while True:
-                time.sleep(2)
-                data = conn.recv(1024)
-                if not data:
-                    print("NO DATA :(")
-                else:
-                    print("DATA RECEIVED: " + str(data))
-                    msg = b"HELLO FROM THE SERVER :D"
-                    conn.send(msg)
-        finally:
-            conn.close()
+    while True:
+        print(f"Waiting for a connection...")
+        conn, addr = s.accept()
+        with conn:
+            try:
+                print(f"Connected by {addr}")
+                # loop to echo the data
+                i = 0
+                while True:
+                    time.sleep(2)
+                    data = conn.recv(1024)
+                    if not data and i < 5:
+                        print("NO DATA :(")
+                        i = i + 1
+                    elif not data and i >= 5:
+                        # listen another connection
+                        i = 0
+                        break
+                    else:
+                        print("DATA RECEIVED: " + str(data))
+                        msg = b"HELLO FROM THE SERVER :D"
+                        conn.send(msg)
+            finally:
+                conn.close()
 
 '''
 This is not necessary for us but it's a way to use the socket raw (not tested)
