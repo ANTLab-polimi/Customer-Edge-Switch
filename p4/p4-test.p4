@@ -41,12 +41,41 @@
             send the packet to the controller (default one)
 ***/
 
+// To understand better how to clone, recirculate, etc...
+// https://carolinafernandez.github.io/development/2019/08/06/Recurrent-processing-in-P4
+// https://github.com/CarolinaFernandez/p4-tutorials/blob/master/exercises/clone/solution/clone.p4
+
+// This is the official repository p4-guide
+// https://github.com/jafingerhut/p4-guide/blob/7dc15e2c24d60c52ad59dd71a0962a87086bb57b/v1model-special-ops/v1model-special-ops.p4
+
 #include <core.p4>
 #include <v1model.p4>
 
 const bit<16> TYPE_IPV4 = 0x0800;
 #define CONTROLLER_PORT 255
 
+// These definitions are derived from the numerical values of the enum
+// named "PktInstanceType" in the p4lang/behavioral-model source file
+// targets/simple_switch/simple_switch.h
+
+// https://github.com/p4lang/behavioral-model/blob/main/targets/simple_switch/simple_switch.h#L145-L153
+
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_NORMAL        = 0;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE = 1;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_EGRESS_CLONE  = 2;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_COALESCED     = 3;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_RECIRC        = 4;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_REPLICATION   = 5;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_RESUBMIT      = 6;
+
+#define IS_RESUBMITTED(std_meta) (std_meta.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_RESUBMIT)
+#define IS_RECIRCULATED(std_meta) (std_meta.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_RECIRC)
+#define IS_I2E_CLONE(std_meta) (std_meta.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE)
+#define IS_E2E_CLONE(std_meta) (std_meta.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_EGRESS_CLONE)
+#define IS_REPLICATED(std_meta) (std_meta.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_REPLICATION)
+
+const bit<32> I2E_CLONE_SESSION_ID = 5;
+const bit<8> CLONE_FL_1 = 2;
 
 /***HEADERS***/
 
@@ -58,6 +87,28 @@ header ethernet_t {
     EthernetAddress dstAddr;
     EthernetAddress srcAddr;
     bit<16> etherType;
+}
+
+//https://www.rfc-editor.org/rfc/rfc9263.html#name-nsh-md-type-2-format
+header nsh_t {
+    // nsh base
+    bit<2> version;
+    bit<1> oam;
+    bit<1> u1;
+    bit<6> ttl;
+    bit<6> length;
+    bit<4> u2;
+    bit<4> md_type;
+    bit<8> nextproto;
+    bit<24> service_path_identifier;
+    bit<8> service_index;
+    // nsh with the variable-length context headers
+    bit<16> metadata_class;
+    bit<8> type;
+    bit<1> u3;
+    bit<7> vlch_length;
+    // this is our focus
+    bit<512> metadata_payload;
 }
 
 header ipv4_t {
@@ -75,6 +126,7 @@ header ipv4_t {
     ip4Addr_t dstAddr;
 }
 
+//https://www.ietf.org/rfc/rfc9293.html#name-header-format
 header tcp_t {
     bit<16> srcPort;
     bit<16> dstPort;
@@ -104,16 +156,26 @@ header packet_in_header_t {
     bit<16> ingress_port;
 }
 
+//user metadata
 struct metadata_t {
+    @field_list(CLONE_FL_1)
     bit<16> tcpLength;
 }
 
 struct headers_t {
+    @field_list(CLONE_FL_1)
     packet_in_header_t  packet_in;
+    @field_list(CLONE_FL_1)
     packet_out_header_t packet_out;
+    @field_list(CLONE_FL_1)
     ethernet_t       ethernet;
+    @field_list(CLONE_FL_1)
+    nsh_t            nsh;
+    @field_list(CLONE_FL_1)
     ipv4_t           ipv4;
+    @field_list(CLONE_FL_1)
     tcp_t            tcp;
+    @field_list(CLONE_FL_1)
     udp_t            udp;
 }
 
@@ -122,9 +184,9 @@ error {
     IPv4OptionsNotSupported
 }
 
-
-/***PARSER***/
-
+  /************/
+ /*  PARSER  */
+/************/
 parser my_parser(packet_in packet,
                 out headers_t hdr,
                 inout metadata_t meta,
@@ -136,11 +198,17 @@ parser my_parser(packet_in packet,
 
     state parse_ethernet {
         packet.extract(hdr.ethernet);
+        transition parse_nsh;
+    }
+
+    state parse_nsh {
+        packet.extract(hdr.nsh);
         transition parse_ipv4;
     }
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
+        // needed for doing a correct checksum
         meta.tcpLength = hdr.ipv4.totalLen - 20;
         transition select(hdr.ipv4.protocol) {
             6: parse_tcp;
@@ -160,21 +228,21 @@ parser my_parser(packet_in packet,
     }
 }
 
-
-/***CHECKSUM VERIFICATION***/
-
-control my_verify_checksum(inout headers_t hdr,
-                         inout metadata_t meta)
+  /**************************/
+ /* CHECKSUM VERIFICATION  */
+/**************************/
+control my_verify_checksum( inout headers_t hdr,
+                            inout metadata_t meta)
 {
     apply { }
 }
 
-
-/***INGRESS***/
-
-control my_ingress(inout headers_t hdr,
-                  inout metadata_t meta,
-                  inout standard_metadata_t standard_metadata)
+  /**************/
+ /*  INGRESS  */
+/************/
+control my_ingress( inout headers_t hdr,
+                    inout metadata_t meta,
+                    inout standard_metadata_t standard_metadata)
 {
 
     bit<16> src_port = 0;
@@ -197,6 +265,29 @@ control my_ingress(inout headers_t hdr,
 
     action send_to_controller(){
         standard_metadata.egress_spec = CONTROLLER_PORT;
+    } 
+
+    action hmac_forward() {
+        // I have to duplicate the packet to notify the control plan that I have received
+        // a packet with a correct hmac inside the NSH, so I can send it to the
+        // next table and set to 1 my metadata support
+        // duplicate the packet and set it to go to the controller
+        // so he can add the table row in the table my_ingress.forward
+
+        // @field_list(CLONE_FL_1) in the components up we want to preservate for the controller
+        clone_preserving_field_list(CloneType.I2E, 5, CLONE_FL_1);
+    }
+
+    table hmac {
+        key = {
+            hdr.nsh.metadata_payload: exact;
+        }
+        actions = {
+            hmac_forward;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
     }
 
     table forward {
@@ -213,17 +304,18 @@ control my_ingress(inout headers_t hdr,
             NoAction;
         }
         size = 1024;
-        default_action = send_to_controller();
+        default_action = drop();
     }
 
     apply {
+
+        if (hdr.nsh.isValid()){
+            // Copy the packet --- IF AND ONLY IF --- the nsh match was verified
+            // so, the packet can go towards the server
+            hmac.apply();
+        }
         if (hdr.ipv4.isValid()) {
-            /*
-            src_port = hdr.tcp.srcPort;
-            dst_port = hdr.tcp.dstPort;
-            forward.apply();
-            */
-            
+
             if (hdr.tcp.isValid()){
                 src_port = hdr.tcp.srcPort;
                 dst_port = hdr.tcp.dstPort;
@@ -235,33 +327,38 @@ control my_ingress(inout headers_t hdr,
                 forward.apply();
             }
             else{
-                send_to_controller();
-                
+                drop();
             }
             
         }
         else {
-            send_to_controller();
-            //drop();
+            drop();
         }
+        
     }
 }
 
-
-/***EGRESS***/
-
-control my_egress(inout headers_t hdr,
-                 inout metadata_t meta,
-                 inout standard_metadata_t standard_metadata)
+  /************/
+ /*  EGRESS  */
+/************/
+control my_egress(  inout headers_t hdr,
+                    inout metadata_t meta,
+                    inout standard_metadata_t standard_metadata)
 {
-     apply{}
+     apply{
+        // if it is a cloned packet, send it to the controller to notify that
+        // an hmac match is happened so he can update the strict table
+        if(standard_metadata.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE){
+            standard_metadata.egress_spec = CONTROLLER_PORT;
+        }
+     }
 }
 
-
-/***CHECKSUM COMPUTATION***/
-
-control my_compute_checksum(inout headers_t hdr,
-                          inout metadata_t meta)
+  /**************************/
+ /*  CHECKSUM COMPUTATION  */
+/**************************/
+control my_compute_checksum(    inout headers_t hdr,
+                                inout metadata_t meta)
 {
     // it's not important the presence of the checksum inside the {...} because it will be considered as 0 like the RFC standard
     // in this way the kernel of the VMs will not drop out the packet incoming
@@ -309,21 +406,24 @@ control my_compute_checksum(inout headers_t hdr,
 }
 
 
-
-/***DEPARSER***/
-
+  /**************/
+ /*  DEPARSER  */
+/**************/
 control my_deparser(packet_out packet, in headers_t hdr) {
     apply {
         packet.emit(hdr.packet_in);
         packet.emit(hdr.packet_out);
         packet.emit(hdr.ethernet);
+        // don't emit the nsh header
+        // it's just an information for us
         packet.emit(hdr.ipv4);
         packet.emit(hdr.tcp);
         packet.emit(hdr.udp);
     }
 }
 
-
+// we need to match these 6 component for the V1Switch atchitecture
+// because its are the 6 phases for this type of switch
 V1Switch(my_parser(),
          my_verify_checksum(),
          my_ingress(),

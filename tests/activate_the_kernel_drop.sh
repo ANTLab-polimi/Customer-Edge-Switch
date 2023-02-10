@@ -1,0 +1,1 @@
+sudo iptables -D OUTPUT 1
