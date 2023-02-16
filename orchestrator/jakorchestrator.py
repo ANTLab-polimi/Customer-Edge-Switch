@@ -14,9 +14,8 @@ import inotify.adapters
 import json, base64
 import hmac, hashlib
 import socket
-# No need to import p4runtime_lib
-# import p4runtime_lib.bmv2
 
+# this class stands for the hmac creation so we can create the hamc here in the control plan and then put it in the hmac_table
 class Auth():
 
     def __init__(self, service_ip, method, authentication, port, protocol, imsi, count, version):
@@ -50,7 +49,7 @@ open_entry_history = []
 #strict_entry_history = [{"ip_dst":"10.0.0.3", "ip_src":"10.0.0.1", "dport":80, "sport":1298, "dstAddr":"ff:ff:ff:ff:ff:ff", egress_port":2 "te":table_entry}, {...}, ...]
 strict_entry_history = []
 
-#hmac_entry_history = [{}, {...}, ...]
+#hmac_entry_history = [{"ip_dst":"10.0.0.3", "ip_src":"10.0.0.1", "dport":80, "sport":1298, "srcAddr":"ff:ff:ff:ff:ff:ff", "dstAddr":"ff:ff:ff:ff:ff:ff", "egress_port":2, "hmac":hmac_hex, "te":table_entry}, {...}, ...]
 hmac_entry_history = []
 
 #check if PolicyDB has been modified
@@ -225,14 +224,9 @@ def addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src):
                 if dictionary["ip_dst"] == ip_dst and dictionary["ip_src"] == ip_src and dictionary["port"] == str(port) and dictionary["ether_src"] == ether_src:
                     entry = dictionary
                     found = True
-            '''
-            #open entry has been deleted
-            if not found:
-                print("[!] Open entry has been deleted")
-                break
-            '''
+
             if timeout - time.time() <= 0.0 and found:
-                #delete open entry
+                # delete open entry
                 entry["te"].delete()
                 open_entry_history.remove(entry)
                 print("[!] OPEN ENTRY DELETED DUE TO TIMEOUT")
@@ -368,21 +362,21 @@ def key_computation(p, g, A, imsi, client_address):
         keyB = hashlib.sha256(str((int(A)**int(b)) % int(p)).encode()).hexdigest()
         print(keyB)
         keys.append({"imsi":imsi, "key":keyB, "count":0})
-        # TODO insert in the P4 HMAC-table the precomputed HMAC
-            print(client_address)
-            auth = Auth(controller_ip, 'ip', client_address[0], http_port, 'TCP', imsi, 0, 1.0)
-            auth = MyEncoder().encode(auth)
-            message_bytes = auth.encode('ascii')
-            base64_bytes = base64.b64encode(message_bytes)
-            hmac_hex = hmac.new(bytes(keyB, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
-            print('HMAC CALCULATED: ' + str(hmac_hex))
-            te = sh.TableEntry('hmac_ingress.hmac')(action='hmac_ingress.hmac_forward')
-            te.match["hdr.nsh.metadata_payload"] = hmac_hex
-            te.priority = 1
-            te.insert()
-            print("[!] New HMAC entry added")
-            hmac_entry_history.append({"ip_dst":ip_dst, "ip_src":ip_src, "dport":str(dport), "sport":str(sport), "srcAddr":ether_src, "dstAddr":ether_dst, "egress_port":egress_port, "hmac":hmac_hex, "te":te})
-            print(hmac_entry_history)
+        # TUTTO DA TESTAREEEEEEEEEEEEEE
+        print(client_address)
+        auth = Auth(controller_ip, 'ip', client_address[0], http_port, 'TCP', imsi, 0, 1.0)
+        auth = MyEncoder().encode(auth)
+        message_bytes = auth.encode('ascii')
+        base64_bytes = base64.b64encode(message_bytes)
+        hmac_hex = hmac.new(bytes(keyB, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
+        print('HMAC CALCULATED: ' + str(hmac_hex))
+        te = sh.TableEntry('my_ingress.hmac')(action='my_ingress.hmac_forward')
+        te.match["hdr.nsh.metadata_payload"] = hmac_hex
+        te.priority = 1
+        te.insert()
+        print("[!] New HMAC entry added")
+        hmac_entry_history.append({"ip_dst":ip_dst, "ip_src":ip_src, "dport":str(dport), "sport":str(sport), "srcAddr":ether_src, "dstAddr":ether_dst, "egress_port":egress_port, "hmac":hmac_hex, "te":te})
+        print(hmac_entry_history)
             
         return B
     else:
@@ -405,6 +399,11 @@ def packetHandler(streamMessageResponse):
         else:
             print("[!] Ether layer not present")
 
+        if pkt.getlayer(NSH) != None:
+            nsh_found = True
+        else:
+            print("[!] NSH layer is not present")
+
         if pkt.getlayer(IP) != None:
             pkt_src = pkt.getlayer(IP).src
             pkt_dst = pkt.getlayer(IP).dst
@@ -417,12 +416,14 @@ def packetHandler(streamMessageResponse):
         else:
             print("[!] TCP layer not present")
 
+        pkt_nsh = pkt.getlayer(NSH)
         pkt_icmp = pkt.getlayer(ICMP)
         pkt_ip = pkt.getlayer(IP)
         pkt_arp = pkt.getlayer(ARP)
         pkt_udp = pkt.getlayer(UDP)
 
         reply = False
+        hmac_insertion = False
         #check for waited replies in open_entry_history
         for dictionary in open_entry_history:
             print("[PACKET HANDLER] CHECKING FOR OPEN ENTRY HISTORY...")
@@ -443,12 +444,15 @@ def packetHandler(streamMessageResponse):
                         print("[!] Open entry deleted")
                         open_entry_history.remove(dictionary)
 
-        # TODO check if the message is about the a HMAC message
         print("[PACKET HANDLER] CHECKING FOR HMAC METADATA...")
-        if not reply and pkt.getlayer(NSHTLV) != None:
-            
+        if not reply and pkt.getlayer(NSH) != None:
+            # checking in the history
+            for dictionary in hmac_entry_history:
+                if pkt_dst == dictionary["ip_dst"] and pkt_src == dictionary["ip_src"]:
+                    if pkt.getlayer(TCP).dport == dictionary["dport"] and pkt.getlayer(TCP).sport == dictionary["sport"]:
+                        addOpenEntry(pkt_src, pkt_dst, dictionary["dport"], dictionary["ether_dst"], 2, dictionary["ether_src"])
 
-        if not reply:
+        if not reply and not hmac_insertion:
             if pkt_icmp != None and pkt_ip != None and str(pkt_icmp.getlayer(ICMP).type) == "8":
                 print("[!] Ping from: " + pkt_src)
                 print("[!] ICMP layer not supported in p4 switch, not used")
@@ -482,6 +486,9 @@ def controller():
     for te in sh.TableEntry("my_ingress.forward").read():
         te.delete()
 
+    for te in sh.TableEntry("my_ingress.hmac").read():
+        te.delete()
+
     #get and save policies_list
     getPolicies()
 
@@ -490,6 +497,7 @@ def controller():
     detector = threading.Thread(target = mod_detector)
     detector.start()
 
+    '''
     #thread that listens for auth connection
     #TODO fix the loop to stay up
     def auth_thread():
@@ -543,7 +551,8 @@ def controller():
 
     # no more needed because we integrate the auth message inside the first message from client to protocol
     #threading.Thread(target = auth_thread).start()
-
+    '''
+    
     #TODO create a loop to mantain this thread up
     def dh_thread():
         global key_port
