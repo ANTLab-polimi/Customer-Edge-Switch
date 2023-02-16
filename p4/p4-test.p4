@@ -187,10 +187,10 @@ error {
   /************/
  /*  PARSER  */
 /************/
-parser my_parser(packet_in packet,
-                out headers_t hdr,
-                inout metadata_t meta,
-                inout standard_metadata_t standard_meta)
+parser my_parser(   packet_in packet,
+                    out headers_t hdr,
+                    inout metadata_t meta,
+                    inout standard_metadata_t standard_meta )
 {
     state start {
         transition parse_ethernet;
@@ -234,7 +234,9 @@ parser my_parser(packet_in packet,
 control my_verify_checksum( inout headers_t hdr,
                             inout metadata_t meta)
 {
-    apply { }
+    apply {
+        // in our case, we don't need to verify anything
+    }
 }
 
   /**************/
@@ -268,14 +270,15 @@ control my_ingress( inout headers_t hdr,
     } 
 
     action hmac_forward() {
-        // I have to duplicate the packet to notify the control plan that I have received
-        // a packet with a correct hmac inside the NSH, so I can send it to the
-        // next table and set to 1 my metadata support
-        // duplicate the packet and set it to go to the controller
-        // so he can add the table row in the table my_ingress.forward
+        // I have to duplicate the packet to notify the controller that I have received
+        // a packet with a correct hmac inside the NSH, so I can duplicate it
+        // for the controller and the real packet can go towards the destination
 
-        // @field_list(CLONE_FL_1) in the components up we want to preservate for the controller
-        clone_preserving_field_list(CloneType.I2E, 5, CLONE_FL_1);
+        // @field_list(CLONE_FL_1) in the components up we want to preserve for the controller
+        clone_preserving_field_list(CloneType.I2E, I2E_CLONE_SESSION_ID, CLONE_FL_1);
+        
+        // to the destination egress port, in our case in the second port
+        standard_metadata.egress_spec = 2;
     }
 
     table hmac {
@@ -311,11 +314,13 @@ control my_ingress( inout headers_t hdr,
 
         if (hdr.nsh.isValid()){
             // Copy the packet --- IF AND ONLY IF --- the nsh match was verified
-            // so, the packet can go towards the server
+            // so, in this way the copy will be redirected to the controller to notify the match
+            // and the real packet has to be sent to the destination
             hmac.apply();
         }
-        if (hdr.ipv4.isValid()) {
-
+        else if (hdr.ipv4.isValid()) {
+            // if there is no nsh header
+            // it will do a normal packet check
             if (hdr.tcp.isValid()){
                 src_port = hdr.tcp.srcPort;
                 dst_port = hdr.tcp.dstPort;
@@ -327,11 +332,13 @@ control my_ingress( inout headers_t hdr,
                 forward.apply();
             }
             else{
-                drop();
+                // it's a ping
+                send_to_controller();
             }
             
         }
         else {
+            // no significant packet
             drop();
         }
         
@@ -422,11 +429,13 @@ control my_deparser(packet_out packet, in headers_t hdr) {
     }
 }
 
-// we need to match these 6 component for the V1Switch atchitecture
-// because its are the 6 phases for this type of switch
-V1Switch(my_parser(),
-         my_verify_checksum(),
-         my_ingress(),
-         my_egress(),
-         my_compute_checksum(),
-         my_deparser()) main;
+// we need (and HAVE) to match these 6 component for the V1Switch atchitecture
+// because its are the 6 phases for this type of switch (no 1 more no 1 less,
+// it would result in an error)
+V1Switch(   my_parser(),
+            my_verify_checksum(),
+            my_ingress(),
+            my_egress(),
+            my_compute_checksum(),
+            my_deparser()
+        ) main;
