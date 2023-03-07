@@ -10,7 +10,10 @@
  allowed_users: 
  -
   method: 'ip' # other auth method: IMSI, SPA, ...
-  user: '192.168.56.1'
+  user: '192.168.56.1' # ip user allowed
+ -
+  method: 'imsi'
+  user: '310170845466094'
  -
   method: 'token'
   user: 'abcdefghilmnopqrstuvz'
