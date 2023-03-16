@@ -87,8 +87,7 @@ def src_test():
     # in the NSH we can insert only 16 char...
     # To recreate an HMAC, we can concatenate the key with the hashed message and
     # then apply the hash algorithm
-    counter = 0
-    hash_hex = shake_128(str(counter).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
+    hash_hex = shake_128(str(count).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
     
     # our special port (not one in common range)
     sport = 54321
@@ -105,7 +104,7 @@ def src_test():
 
     # starting simulating the TCP userstack session
 
-    fake_socket.connect(hmac_hex)
+    fake_socket.connect(hash_hex)
     i = 0
     while i < 5:
         msg = 'HI FROM THE CLIENT! :D'
