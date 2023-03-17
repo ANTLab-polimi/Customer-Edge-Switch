@@ -12,11 +12,12 @@ import yaml
 import threading
 import inotify.adapters
 import json, base64
-import hmac, hashlib
+import hmac
 import socket
 import json
 from json import JSONEncoder
 from scapy.contrib.nsh import *
+from scapy.contrib.oncrpc import *
 
 # this class stands for the hmac creation so we can create the hamc here in the control plan and then put it in the hmac_table
 class Auth():
@@ -285,15 +286,6 @@ def getPoliciesDB(packet):
     except Error as e:
         print(e)
 
-# look for policy for the given service_name and imsi
-# if it exists, returns ip and port
-# else returns -1
-def lookForPolicy(policyList, service_name, imsi):
-    global mac_addresses
-    found = False
-
-    service_port = 0
-    service_ip = ''
 '''
     for policy in policyList:
         if service_ip == policy.get("ip") and int(port) == policy.get("port") and protocol == policy.get("protocol"):
@@ -320,9 +312,19 @@ def lookForPolicy(policyList, service_name, imsi):
         else:
             print("[IP METHOD] POLICY METHOD PORT AND PROTOCOL NOOOOOOOOOOOOOOOOOOT MATCH")
 '''
+# look for policy for the given service_name and imsi
+# if it exists, returns ip and port
+# else returns -1
+def lookForPolicy(policyList, service_name, imsi):
+    global mac_addresses
+    found = False
+
+    service_port = 0
+    service_ip = ''
+
     for policy in policyList:
         if service_name == policy.get("serviceName"):
-            for user in policy.get("allowed_user"):
+            for user in policy.get("allowed_users"):
                 if 'imsi' == user.get("method") and user.get("user") == imsi:
                     print("[POLICY CHECK] OK!")
                     found = True
@@ -364,9 +366,9 @@ def key_computation(p, g, A, imsi, client_address, service_ip, service_port):
         b = random.randint(10,20)
         B = (int(g)**int(b)) % int(p)
         print("B: " + str(B))
-        keyB = hashlib.sha256(str((int(A)**int(b)) % int(p)).encode()).hexdigest()
-        print(keyB)
-        keys.append({"imsi":imsi, "key":keyB, "count":1})
+        master_key = hashlib.sha256(str((int(A)**int(b)) % int(p)).encode()).hexdigest()
+        print("master_key: " + str(master_key))
+        keys.append({"imsi":imsi, "key":master_key, "count":1})
 
         ether_src = mac_addresses[client_address[0]]
         ether_dst = mac_addresses[service_ip]
@@ -376,7 +378,7 @@ def key_computation(p, g, A, imsi, client_address, service_ip, service_port):
         message_bytes = auth.encode('ascii')
         base64_bytes = base64.b64encode(message_bytes)
 
-        hash_hex = shake_128(str(1).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
+        hash_hex = hashlib.shake_128(str(1).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
         #hash_hex = hmac.new(bytes(keyB, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
         print('HASH CALCULATED: ' + str(hash_hex))
 
@@ -440,55 +442,67 @@ def packetHandler(streamMessageResponse):
         pkt_icmp = pkt.getlayer(ICMP)
         pkt_ip = pkt.getlayer(IP)
         pkt_arp = pkt.getlayer(ARP)
-        #pkt_udp = pkt.getlayer(UDP)
+        pkt_tcp = pkt.getlayer(TCP)
+        pkt_rpc = pkt.getlayer(RPC)
+
+        if pkt_rpc != None:
+            print("[!] RPC PRESENT")
+        else:
+            print("[!] RPC layer not present")
 
         reply = False
 
-        #check for waited replies in open_entry_history
-        for dictionary in open_entry_history:
-            print("[PACKET HANDLER] CHECKING FOR OPEN ENTRY HISTORY...")
-            print(str(pkt.getlayer(IP)))
-            print(str(pkt_src), str(dictionary["ip_src"]), str(pkt_src == dictionary["ip_src"]))
-            print(str(pkt_dst), str(dictionary["ip_dst"]), str(pkt_dst == dictionary["ip_dst"]))
-            if pkt.getlayer(IP) != None and pkt_src == dictionary["ip_src"] and pkt_dst == dictionary["ip_dst"]:
-                if pkt.getlayer(TCP) != None:
-                    if str(pkt.getlayer(TCP).dport) == dictionary["port"]:
-                        reply = True
-                        print("[!] Packet with NSH was arrived in data plane")
-                        # we are supposing that this packet is the one with NSH (removed) and
-                        # we need to insert the two rules strictly
-                        # add strict entries
-                        # definition -> addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
-                        addEntry(pkt_src, pkt_dst, dictionary["port"], pkt.getlayer(TCP).sport, dictionary["ether_dst"], 2, dictionary["ether_src"])
-                        addEntry(pkt_dst, pkt_src, pkt.getlayer(TCP).sport, dictionary["port"], dictionary["ether_src"], 1, dictionary["ether_dst"])
-                        print("ADDED STRICT ENTRIES AT " + str(time.time()))
-                        # delete open entries
-                        dictionary["te"].delete()
-                        print("[!] Open entry deleted")
-                        open_entry_history.remove(dictionary)
+        # my_filter = "ether proto arp or (ip host 192.168.56.6 and port host 80)"
+        if pkt_arp != None or (pkt_tcp != None and (pkt_tcp.sport == http_port or pkt_tcp.dport == http_port) and (pkt_src == "192.168.56.6"  or pkt_dst == "192.168.56.6") and pkt_rpc == None):
+        
+            # check for waited replies in open_entry_history
+            for dictionary in open_entry_history:
+                print("[PACKET HANDLER] CHECKING FOR OPEN ENTRY HISTORY...")
+                #print(str(pkt.getlayer(IP)))
+                #print(str(pkt_src), str(dictionary["ip_src"]), str(pkt_src == dictionary["ip_src"]))
+                #print(str(pkt_dst), str(dictionary["ip_dst"]), str(pkt_dst == dictionary["ip_dst"]))
+                if pkt.getlayer(IP) != None and pkt_src == dictionary["ip_src"] and pkt_dst == dictionary["ip_dst"]:
+                    if pkt.getlayer(TCP) != None:
+                        if str(pkt.getlayer(TCP).dport) == dictionary["port"]:
+                            reply = True
+                            print("[!] Packet with NSH was arrived in data plane")
+                            # we are supposing that this packet is the one with NSH (removed) and
+                            # we need to insert the two rules strictly
+                            # add strict entries
+                            # definition -> addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
+                            addEntry(pkt_src, pkt_dst, dictionary["port"], pkt.getlayer(TCP).sport, dictionary["ether_dst"], 2, dictionary["ether_src"])
+                            addEntry(pkt_dst, pkt_src, pkt.getlayer(TCP).sport, dictionary["port"], dictionary["ether_src"], 1, dictionary["ether_dst"])
+                            print("ADDED STRICT ENTRIES AT " + str(time.time()))
+                            # delete open entries
+                            dictionary["te"].delete()
+                            print("[!] Open entry deleted")
+                            open_entry_history.remove(dictionary)
 
-                        # searching the reverse open entry
-                        for open_entry in open_entry_history:
-                            if pkt_src == open_entry["ip_dst"] and pkt_dst == open_entry["ip_src"] and str(pkt.getlayer(TCP).dport) == open_entry["port"]:
-                                open_entry["te"].delete()
-                                print("[!] Open entry deleted")
-                                open_entry_history.remove(open_entry)
+                            # searching the reverse open entry
+                            for open_entry in open_entry_history:
+                                if pkt_src == open_entry["ip_dst"] and pkt_dst == open_entry["ip_src"] and str(pkt.getlayer(TCP).dport) == open_entry["port"]:
+                                    open_entry["te"].delete()
+                                    print("[!] Open entry deleted")
+                                    open_entry_history.remove(open_entry)
 
-        if not reply:
-            if pkt_icmp != None and pkt_ip != None and str(pkt_icmp.getlayer(ICMP).type) == "8":
-                print("[!] Ping from: " + pkt_src)
-                print("[!] ICMP layer not supported in p4 switch, not used")
-            elif pkt_arp != None:
-                print("[!] ARP info")
-                arpManagement(pkt)
-            elif pkt_ip != None:
-                print("[!] Packet received: " + pkt_src + " --> " + pkt_dst)
-                if pkt.getlayer(TCP) != None:
-                    print("TCP layer:")
-                    print("sport: " + str(pkt.getlayer(TCP).sport))
-                    print("dport: " + str(pkt.getlayer(TCP).dport))
-            else:
-                print("[!] No needed layers")
+            if not reply:
+                if pkt_icmp != None and pkt_ip != None and str(pkt_icmp.getlayer(ICMP).type) == "8":
+                    print("[!] Ping from: " + pkt_src)
+                    print("[!] ICMP layer not supported in p4 switch, not used")
+                elif pkt_arp != None:
+                    print("[!] ARP info")
+                    arpManagement(pkt)
+                elif pkt_ip != None:
+                    print("[!] Packet received: " + pkt_src + " --> " + pkt_dst)
+                    if pkt.getlayer(TCP) != None:
+                        print("TCP layer:")
+                        print("sport: " + str(pkt.getlayer(TCP).sport))
+                        print("dport: " + str(pkt.getlayer(TCP).dport))
+                else:
+                    print("[!] No needed layers")
+
+        else:
+            print("[!] Packet discarded")
 
 # setup connection w/ switch, sets policies_list, starts mod_detector thread and listens for new packets
 # here there is condensed the main and all the CONTROL PLANE of the switch
@@ -578,6 +592,7 @@ def controller():
     # this is the thread that handles the 
     def dh_thread():
         global key_port
+        global policies_list
         host = "0.0.0.0"
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((host, key_port))
@@ -595,7 +610,7 @@ def controller():
                 imsi = dh['imsi']
                 service_name = dh['service_name']
 
-                service_ip_port = lookForPolicy(policy_list, service_name, imsi)
+                service_ip_port = lookForPolicy(policies_list, service_name, imsi)
 
                 B = 0
                 if service_ip_port[0] == -1:
@@ -634,7 +649,14 @@ def controller():
         my_filter = "ether proto arp or (ip host 192.168.56.6 and port host 80)"
         # this filter is using the Berkeley Packet Filter https://biot.com/capstats/bpf.html the same one as tcpdump
         # https://stackoverflow.com/questions/37453283/filter-options-for-sniff-function-in-scapy
-        packet_in.sniff(lambda m: handle_thread_pkt_management(m, threads), timeout = 0.01, filter = my_filter)
+
+        # https://github.com/secdev/scapy/blob/246ad3fecbd218e6cd57705b1b42a8a5a0714652/scapy/sendrecv.py#L1307
+        # https://github.com/secdev/scapy/blob/246ad3fecbd218e6cd57705b1b42a8a5a0714652/scapy/sendrecv.py#L980
+        # scapy.sniff(prn = lambda m: handle_thread_pkt_management(m, threads), filter = my_filter)
+
+        # for the shell.packetIn() there is no filter...
+        # https://github.com/p4lang/p4runtime-shell/blob/main/p4runtime_sh/shell.py#L2611
+        packet_in.sniff(lambda m: handle_thread_pkt_management(m, threads), timeout = 0.01)
 
 # all the executable is inside the controller function
 if __name__ == '__main__':

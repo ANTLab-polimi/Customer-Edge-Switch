@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
-# Author: N0dr4x (n0dr4x@protonmail.com)
 # link Github: https://gist.github.com/N0dr4x/ffe99618a738978605719ce525a33042
 
 '''
@@ -59,6 +58,7 @@ TODO :
 from scapy.all import *
 from scapy.contrib.nsh import *
 from threading import Thread
+from scapy.packet import *
 
 class TcpSession:
 
@@ -68,7 +68,7 @@ class TcpSession:
         #self.ip = IP(dst=target[0])
         #self.sport = 1337
         #self.dport = target[1]
-        self.ip = IP(src=ip_src,dst=ip_dst)
+        self.ip = IP(src=ip_src,dst=ip_dst,proto=6)
         self.sport = sport
         self.dport = dport
         self.connected = False
@@ -122,9 +122,8 @@ class TcpSession:
         #syn = NSH(mdtype=2)/NSHTLV(length=len(hmac_hex), metadata=hmac_hex)/self.ip/TCP(sport=self.sport, dport=self.dport, seq=self.seq, flags='S')
         #syn = NSH(mdtype=1,nextproto=1,length=len(hmac_hex),context_header=hmac_hex)/presyn
         syn = NSH(mdtype=1,nextproto=1,context_header=hash_hex)/presyn
-        print("SYN PACKET: " + str(syn))
-        print(syn.layers())
         syn.show()
+        # https://scapy.readthedocs.io/en/latest/api/scapy.sendrecv.html
         syn_ack = sr1(syn, timeout=self._timeout)
         self.seq += 1
         

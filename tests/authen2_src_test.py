@@ -8,6 +8,7 @@ import hmac, hashlib, base64, random
 from scapy_TCPSession import *
 import subprocess
 import os
+import binascii
 
 def netcat(hostname, port, content, flag):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,7 +63,7 @@ def src_test():
 
     # reading the master_key
 
-    my_file = str(imsi) + "master_key.txt"
+    name_file = str(imsi) + "master_key.txt"
     fd = open(name_file, 'r')
     try:
         # or read(16)
@@ -70,8 +71,7 @@ def src_test():
     finally:
         fd.close()
 
-    master_key = fd.readline()
-    print(master_key)
+    print("master_key: " + master_key)
 
     # starting the authorization phase, encoding the message and hmac with the dh key
 
@@ -87,7 +87,7 @@ def src_test():
     # in the NSH we can insert only 16 char...
     # To recreate an HMAC, we can concatenate the key with the hashed message and
     # then apply the hash algorithm
-    hash_hex = shake_128(str(count).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
+    hash_hex = hashlib.shake_128(str(count).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
     
     # our special port (not one in common range)
     sport = 54321
@@ -103,8 +103,10 @@ def src_test():
     #subprocess.call(['sh','./disable_the_kernel_drop.sh'])
 
     # starting simulating the TCP userstack session
+    my_hash = binascii.unhexlify(hash_hex)
+    print(my_hash)
 
-    fake_socket.connect(hash_hex)
+    fake_socket.connect(my_hash)
     i = 0
     while i < 5:
         msg = 'HI FROM THE CLIENT! :D'

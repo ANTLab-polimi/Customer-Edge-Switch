@@ -89,7 +89,9 @@ header ethernet_t {
     bit<16> etherType;
 }
 
-//https://www.rfc-editor.org/rfc/rfc9263.html#name-nsh-md-type-2-format
+// https://www.rfc-editor.org/rfc/rfc8300.html
+// https://www.rfc-editor.org/rfc/rfc9263.html#name-nsh-md-type-2-format
+// https://github.com/secdev/scapy/blob/master/scapy/contrib/nsh.py#L38
 header nsh_t {
     // nsh base
     bit<2> version;
@@ -103,7 +105,7 @@ header nsh_t {
     bit<24> service_path_identifier;
     bit<8> service_index;
     // this is our focus
-    bit<64> metadata_payload;
+    bit<128> metadata_payload;
 }
 
 header ipv4_t {
@@ -212,6 +214,7 @@ parser my_parser(   packet_in packet,
         packet.extract(hdr.ipv4);
         // needed for doing a correct checksum
         meta.tcpLength = hdr.ipv4.totalLen - 20;
+        // https://www.rfc-editor.org/rfc/rfc790
         transition select(hdr.ipv4.protocol) {
             6: parse_tcp;
             17: parse_udp;
@@ -283,7 +286,7 @@ control my_ingress( inout headers_t hdr,
         ethernet_forward(dstAddr, srcAddr);
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
         hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, src_port, dst_port, hdr.ipv4.protocol}, (bit<32>)4096);
-        hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dstAddr, hdr.ipv4.srcAddr, dst_port, src_port, hdr.ipv4.protocol}, (bit<32>)4096);
+        hash(meta.tmp2, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dstAddr, hdr.ipv4.srcAddr, dst_port, src_port, hdr.ipv4.protocol}, (bit<32>)4096);
         checked_nsh_reg.write(meta.tmp1, (bit<1>)1);
         checked_nsh_reg.write(meta.tmp2, (bit<1>)1);
 
@@ -465,8 +468,8 @@ control my_deparser(
                         in headers_t hdr)
 {
     apply {
-        packet.emit(hdr.packet_in);
-        packet.emit(hdr.packet_out);
+        //packet.emit(hdr.packet_in);
+        //packet.emit(hdr.packet_out);
         packet.emit(hdr.ethernet);
         // no NSH outside our "network"
         packet.emit(hdr.ipv4);

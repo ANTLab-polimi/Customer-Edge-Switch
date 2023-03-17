@@ -5,6 +5,7 @@ from scapy.all import *
 import json
 from json import JSONEncoder
 import socket
+import os
 
 
 def isPrime(k):
@@ -26,15 +27,15 @@ def netcat(hostname, port, content, a, p):
         data = s.recv(1024)
 
         def key_computation(pkt):
-            global key
             raw = str(data).split('\\')[0][2:]
             B = int(raw[:-1])
             key = hashlib.sha256(str((int(B)**int(a)) % int(p)).encode()).hexdigest()
+            return key
 
         if len(data) == 0:
             "nothing"
         else:
-            key_computation(data)
+            key = key_computation(data)
             print("DH FINISHED AT: " + str(time.time()))
             break
 
@@ -89,13 +90,15 @@ def key_exchange():
 
 
     master_key = dh(imsi, controller_ip, key_port, service_name)
-
+    print("master_key: " + master_key)
     if master_key == -1:
         print("something was wrong...")
     else:
         # writing the master key in a file:
         name_file = str(imsi) + 'master_key.txt'
         fd = open(name_file, 'w')
+        os.system('chmod +r ' + name_file)
+        os.system('chmod +w ' + name_file)
         try:
             fd.write(master_key)
         finally:
