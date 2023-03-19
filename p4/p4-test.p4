@@ -155,27 +155,20 @@ header packet_in_header_t {
 
 //user metadata
 struct metadata_t {
-    @field_list(CLONE_FL_1)
     bit<16> tcpLength;
     bit<1> checked_nsh;
     bit<32> tmp1;
     bit<32> tmp2;
+    bit<1> debug;
 }
 
 struct headers_t {
-    @field_list(CLONE_FL_1)
     packet_in_header_t  packet_in;
-    @field_list(CLONE_FL_1)
     packet_out_header_t packet_out;
-    @field_list(CLONE_FL_1)
     ethernet_t       ethernet;
-    @field_list(CLONE_FL_1)
     nsh_t            nsh;
-    @field_list(CLONE_FL_1)
     ipv4_t           ipv4;
-    @field_list(CLONE_FL_1)
     tcp_t            tcp;
-    @field_list(CLONE_FL_1)
     udp_t            udp;
 }
 
@@ -290,8 +283,10 @@ control my_ingress( inout headers_t hdr,
         checked_nsh_reg.write(meta.tmp1, (bit<1>)1);
         checked_nsh_reg.write(meta.tmp2, (bit<1>)1);
 
+        // https://github.com/jafingerhut/p4-guide/blob/00aba90ae88c21f94e6c25906224d6093a642434/v1model-special-ops/v1model-special-ops.p4
         // @field_list(CLONE_FL_1) in the components up we want to preserve for the controller
-        clone_preserving_field_list(CloneType.I2E, I2E_CLONE_SESSION_ID, CLONE_FL_1);
+        //clone_preserving_field_list(CloneType.I2E, I2E_CLONE_SESSION_ID, CLONE_FL_1);
+        clone(CloneType.I2E, I2E_CLONE_SESSION_ID);
     }
 
     table hmac {
@@ -387,13 +382,56 @@ control my_ingress( inout headers_t hdr,
 }
 
   /************/
+ /*  DEBUG   */
+/************/
+
+control debug_std_meta( inout standard_metadata_t standard_metadata,
+                        inout metadata_t meta)
+{
+    table dbg_table {
+        key = {
+            // This is a complete list of fields inside of the struct
+            // standard_metadata_t as of the 2021-Dec-12 version of
+            // p4c in the file p4c/p4include/v1model.p4.
+
+            // parser_error is commented out because the p4c back end
+            // for bmv2 as of that date gives an error if you include
+            // a field of type 'error' in a table key.
+            standard_metadata.ingress_port : exact;
+            standard_metadata.egress_spec : exact;
+            standard_metadata.egress_port : exact;
+            standard_metadata.instance_type : exact;
+            standard_metadata.packet_length : exact;
+            standard_metadata.enq_timestamp : exact;
+            standard_metadata.enq_qdepth : exact;
+            standard_metadata.deq_timedelta : exact;
+            standard_metadata.deq_qdepth : exact;
+            standard_metadata.ingress_global_timestamp : exact;
+            standard_metadata.egress_global_timestamp : exact;
+            standard_metadata.mcast_grp : exact;
+            standard_metadata.egress_rid : exact;
+            standard_metadata.checksum_error : exact;
+
+            //standard_metadata.parser_error : exact;
+        }
+        actions = { NoAction; }
+        const default_action = NoAction();
+    }
+    apply {
+        dbg_table.apply();
+    }
+}
+
+  /************/
  /*  EGRESS  */
 /************/
 control my_egress(  inout headers_t hdr,
                     inout metadata_t meta,
                     inout standard_metadata_t standard_metadata)
 {
-     apply{
+    debug_std_meta() debug_std_meta_egress_end;
+
+    apply{
         // if it has a nsh header, we modify the ethertype in a ipv4 type
         // because we will remove the header from the packet and
         // in our consideration the default packet with the nsh is a packet 
@@ -404,8 +442,13 @@ control my_egress(  inout headers_t hdr,
         // an hmac match is happened so he can remove the instance
         if(standard_metadata.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE){
             standard_metadata.egress_spec = CONTROLLER_PORT;
+            meta.debug = 1;
         }
-     }
+
+        if(meta.debug == 1) {
+            debug_std_meta_egress_end.apply(standard_metadata, meta);
+        }
+    }
 }
 
   /**************************/

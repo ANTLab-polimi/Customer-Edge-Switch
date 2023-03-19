@@ -122,9 +122,19 @@ class TcpSession:
         #syn = NSH(mdtype=2)/NSHTLV(length=len(hmac_hex), metadata=hmac_hex)/self.ip/TCP(sport=self.sport, dport=self.dport, seq=self.seq, flags='S')
         #syn = NSH(mdtype=1,nextproto=1,length=len(hmac_hex),context_header=hmac_hex)/presyn
         syn = NSH(mdtype=1,nextproto=1,context_header=hash_hex)/presyn
-        syn.show()
+        #syn.show()
         # https://scapy.readthedocs.io/en/latest/api/scapy.sendrecv.html
-        syn_ack = sr1(syn, timeout=self._timeout)
+        #syn_ack = sr1(syn, timeout=self._timeout, iface='eth1', filter='tcp')
+
+        # the sr1 didn't give me back the answer (which theoretically WAS CORRECT...)
+
+        send(syn)
+        s = L3RawSocket()
+        syn_ack = s.recv()
+        #syn_ack.show()
+        s.close()
+
+        #syn_ack = sr1(syn,timeout=self._timeout)
         self.seq += 1
         
         assert syn_ack.haslayer(TCP) , 'TCP layer missing'

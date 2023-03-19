@@ -412,7 +412,7 @@ def packetHandler(streamMessageResponse):
         packet_payload = packet.payload
         pkt = Ether(_pkt=packet.payload)
 
-        pkt.show()
+        #pkt.show()
 
         pkt_ether = pkt.getlayer(Ether)
         if pkt_ether != None:
