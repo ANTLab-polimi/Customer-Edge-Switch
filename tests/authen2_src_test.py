@@ -51,7 +51,6 @@ def src_test():
     http_port = 80
     protocol = "TCP"
     method = "ip"
-    #imsi = "302130123456789"
     # random.seed(int(time.time()))
     #imsi = ranodm.randint( int(pow(1,pow(10,15))) , int(pow(9.0,pow(10,15))) )
     #imsi = random.randint(100000000000000,999999999999999)
@@ -81,11 +80,13 @@ def src_test():
     auth = MyEncoder().encode(auth)
     message_bytes = auth.encode('ascii')
     base64_bytes = base64.b64encode(message_bytes)
+
+    # the previous hmac but it was based on 512 bits...too long
     #hmac_hex = hmac.new(bytes(key, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
 
-    # shake_128 asserts collision resistance on 64 bits so for the 16 hexdigest I'm ok ->
-    # in the NSH we can insert only 16 char...
-    # To recreate an HMAC, we can concatenate the key with the hashed message and
+    # shake_128 asserts collision resistance on 64 bits so for the 8 hexdigest we are ok ->
+    # in the NSH we can insert only 16 bytes...
+    # To recreate an HMAC, we can concatenate an incremental counter, the master key and the hashed message
     # then apply the hash algorithm
     hash_hex = hashlib.shake_128(str(count).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
     
@@ -104,7 +105,7 @@ def src_test():
 
     # starting simulating the TCP userstack session
     my_hash = binascii.unhexlify(hash_hex)
-    print(my_hash)
+    #print(my_hash)
 
     fake_socket.connect(my_hash)
     i = 0
@@ -117,7 +118,7 @@ def src_test():
     fake_socket.close()
 
 
-    #to reactivate the eventually RST tcp packet send from the kernel
+    # to reactivate the eventually RST tcp packet send from the kernel
     subprocess.call(['sh','./activate_the_kernel_drop.sh'])
 
 

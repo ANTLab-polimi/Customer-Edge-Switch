@@ -56,7 +56,7 @@ strict_entry_history = []
 #hash_entry_history = [{"ip_dst":"10.0.0.3", "ip_src":"10.0.0.1", "dport":80, "sport":1298, "srcAddr":"ff:ff:ff:ff:ff:ff", "dstAddr":"ff:ff:ff:ff:ff:ff", "egress_port":2, "hmac":hmac_hex, "te":table_entry}, {...}, ...]
 hash_entry_history = []
 
-#check if PolicyDB has been modified
+# check if PolicyDB has been modified
 def mod_detector():
     while True:
         i = inotify.adapters.Inotify()
@@ -72,7 +72,7 @@ def mod_detector():
             #log:
             #print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
 
-#find out specific modifications per policy
+# find out specific modifications per policy
 def mod_manager():
     global policies_list
     global mac_addresses
@@ -145,7 +145,7 @@ def mod_manager():
     print("[!] New policies_list: ")
     print(policies_list)
 
-#del policies when service not found
+# del policies when service not found
 def delPolicies(ip):
     global strict_entry_history
     for dictionary in strict_entry_history:
@@ -153,7 +153,7 @@ def delPolicies(ip):
             dictionary["te"].delete()
             strict_entry_history.remove(dictionary)
 
-#edit service ip (also bidirectional entry)
+# edit service ip (also bidirectional entry)
 def editIPPolicies(old_ip, new_ip, port):
     global strict_entry_history
     for dictionary in strict_entry_history:
@@ -169,7 +169,7 @@ def editIPPolicies(old_ip, new_ip, port):
             addEntry(new_ip, dictionary["ip_dst"], dictionary["dport"], dictionary["sport"], dictionary["dstAddr"], dictionary["egress_port"], dictionary["srcAddr"])
             strict_entry_history.remove(dictionary)
 
-#edit service port
+# edit service port
 def editPortPolicies(ip, new_port):
     global strict_entry_history
     for dictionary in strict_entry_history:
@@ -186,7 +186,7 @@ def editPortPolicies(ip, new_port):
             addEntry(ip, dictionary["ip_dst"], dictionary["dport"], new_port, dictionary["dstAddr"], dictionary["egress_port"], dictionary["srcAddr"])
             strict_entry_history.remove(dictionary)
 
-#delete a policy (old service, user not allowed anymore)
+# delete a policy (old service, user not allowed anymore)
 def delUE(ue_ip, service_ip):
     global strict_entry_history
     for dictionary in strict_entry_history:
@@ -242,7 +242,7 @@ def addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src, who):
 
     open_entry_timeout = threading.Thread(target = entry_timeout, args = (ip_dst, ip_src, port, ether_src,)).start()
 
-#add a new "strict" (sport -> microsegmentation) entry
+# add a new "strict" (sport -> microsegmentation) entry
 def addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
     te = sh.TableEntry('my_ingress.forward')(action='my_ingress.ipv4_forward')
     te.match["hdr.ipv4.srcAddr"] = ip_src
@@ -258,15 +258,15 @@ def addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
     strict_entry_history.append({"ip_dst":ip_dst, "ip_src":ip_src, "dport":str(dport), "sport":str(sport), "srcAddr":ether_src, "dstAddr":ether_dst, "egress_port":egress_port, "te":te})
     print(str(strict_entry_history))
 
-#update policies_list
+# update policies_list
 def getPolicies():
-    #policyDB as a yaml file
-    #each policy is a tuple containing specific attributes
+    # policyDB as a yaml file
+    # each policy is a tuple containing specific attributes
     global policies_list
     stream = open("../orchestrator/policiesDB.yaml", 'r')
     policies_list = yaml.safe_load(stream)
 
-#if policyDB is managed as a true db
+# if policyDB is managed as a true db
 def getPoliciesDB(packet):
     global policies_list
     try:
@@ -332,7 +332,7 @@ def lookForPolicy(policyList, service_name, imsi):
                     service_ip = policy.get("ip")
 
     if not found:
-        #packet drop
+        # packet drop
         packet = None
         service_ip = -1
         service_port = -2
@@ -340,7 +340,7 @@ def lookForPolicy(policyList, service_name, imsi):
 
     return (service_ip, service_port)
 
-#add new ip-mac entry to dictionary
+# add new ip-mac entry to dictionary
 def arpManagement(packet):
     global mac_addresses
     mac = packet.getlayer(Ether).src
@@ -421,12 +421,6 @@ def packetHandler(streamMessageResponse):
         else:
             print("[!] Ether layer not present")
 
-        #print(pkt)
-        #scapy_packet = pkt
-        #if scapy_packet.haslayer(scapy.packet.Raw) and len(pkt) > 512:
-        #    load = scapy_packet[scapy.packet.Raw].load
-        #    print(load)
-
         if pkt.getlayer(IP) != None:
             pkt_src = pkt.getlayer(IP).src
             pkt_dst = pkt.getlayer(IP).dst
@@ -452,7 +446,7 @@ def packetHandler(streamMessageResponse):
 
         reply = False
 
-        # my_filter = "ether proto arp or (ip host 192.168.56.6 and port host 80)"
+        # my_filter = "ether proto arp or (ip host 192.168.56.6 and port host 80 and not rpc)"
         if pkt_arp != None or (pkt_tcp != None and (pkt_tcp.sport == http_port or pkt_tcp.dport == http_port) and (pkt_src == "192.168.56.6"  or pkt_dst == "192.168.56.6") and pkt_rpc == None):
         
             # check for waited replies in open_entry_history
@@ -469,7 +463,6 @@ def packetHandler(streamMessageResponse):
                             # we are supposing that this packet is the one with NSH (removed) and
                             # we need to insert the two rules strictly
                             # add strict entries
-                            # definition -> addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
                             addEntry(pkt_src, pkt_dst, dictionary["port"], pkt.getlayer(TCP).sport, dictionary["ether_dst"], 2, dictionary["ether_src"])
                             addEntry(pkt_dst, pkt_src, pkt.getlayer(TCP).sport, dictionary["port"], dictionary["ether_src"], 1, dictionary["ether_dst"])
                             print("ADDED STRICT ENTRIES AT " + str(time.time()))
@@ -478,7 +471,7 @@ def packetHandler(streamMessageResponse):
                             print("[!] Open entry deleted")
                             open_entry_history.remove(dictionary)
 
-                            # searching the reverse open entry
+                            # searching for the reverse open entry
                             for open_entry in open_entry_history:
                                 if pkt_src == open_entry["ip_dst"] and pkt_dst == open_entry["ip_src"] and str(pkt.getlayer(TCP).dport) == open_entry["port"]:
                                     open_entry["te"].delete()
@@ -509,7 +502,7 @@ def packetHandler(streamMessageResponse):
 def controller():
     global policies_list
 
-    #connection
+    # connection
     sh.setup(
         device_id=1,
         grpc_addr='127.0.0.1:50051', #substitute ip and port with the ones of the specific switch
@@ -517,7 +510,7 @@ def controller():
         config=sh.FwdPipeConfig('../p4/test.p4info.txt','../p4/test.json')
     )
 
-    #deletion of already-present entries
+    # deletion of already-present entries
     print("[!] Entries initial deletion")
     for te in sh.TableEntry("my_ingress.forward").read():
         te.delete()
@@ -525,71 +518,15 @@ def controller():
     for te in sh.TableEntry("my_ingress.hmac").read():
         te.delete()
 
-    #get and save policies_list
+    # get and save policies_list
     getPolicies()
 
-    #thread that checks for policies modifications
+    # thread that checks for policies modifications
     print("[!] Policies modifications detector started")
     detector = threading.Thread(target = mod_detector)
     detector.start()
 
-    '''
-    #thread that listens for auth connection
-    #TODO fix the loop to stay up
-    def auth_thread():
-        global auth_port
-        host = "0.0.0.0"
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((host, auth_port))
-        s.listen()
-        while True:
-            connection_auth, client_address_auth = s.accept()
-            print("[AUTH_THREAD]" + str(client_address_auth))
-            with connection_auth:
-                data = connection_auth.recv(1024)
-                if not data:
-                    print("[AUTH THREAD!] NO DATA IN SOCKET AUTH RECEIVED")
-                else:
-                    print("Auth pkt received at: " + str(time.time()))
-                    pkt_raw = str(data).split("---")
-                    hmac_hex = pkt_raw[1][:-1] #remove '
-                    auth = pkt_raw[0][2:] #remove b"
-                    auth_bytes = base64.b64decode(auth[2:-1]) #remove b'
-                    auth_string = auth_bytes.decode('unicode_escape')
-
-                    def hmac_check(auth_string, auth_bytes, hmac_hex):
-                        auth_dict = json.loads(auth_string)
-                        imsi = auth_dict["imsi"]
-                        count = auth_dict["count"]
-                        service_ip = auth_dict["service_ip"]
-                        if service_ip in mac_addresses:
-                            found = False
-                            for dictionary in keys:
-                                if dictionary["imsi"] == imsi and dictionary["count"] < count:
-                                    found = True
-                                    key = dictionary["key"]
-                                    dictionary["count"] = count
-                                    base64_bytes = base64.b64encode(auth_bytes)
-                                    hmac_hex_new = hmac.new(bytes(key, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
-                                    if hmac_hex_new == hmac_hex:
-                                        print("[AUTH THREAD!] HMAC is the same! Looking for policies...")
-                                        lookForPolicy(policies_list, auth_dict, client_address_auth)
-                                    else:
-                                        print("[!] HMAC is different. R u a thief?")
-                                        break
-                            if not found:
-                                print("[!] User has not negotiated key yet")
-                        else:
-                            print("[!] service MAC is not known; still waiting for a gratuitous ARP")
-                    
-                    hmac_check(auth_string, auth_bytes, hmac_hex)
-                    #return
-
-    # no more needed because we integrate the auth message inside the first message from client to protocol
-    #threading.Thread(target = auth_thread).start()
-    '''
-
-    # this is the thread that handles the 
+    # this is the thread that handles the diffie-hellman key exchange
     def dh_thread():
         global key_port
         global policies_list
@@ -610,11 +547,12 @@ def controller():
                 imsi = dh['imsi']
                 service_name = dh['service_name']
 
+                # checking the policy if this imsi is authenticated for this service_name
                 service_ip_port = lookForPolicy(policies_list, service_name, imsi)
 
                 B = 0
                 if service_ip_port[0] == -1:
-                    print("[DH_THREAD] There is no policy with that name or that imsi is not authorized")
+                    print("[DH_THREAD] There is no policy with that name or that imsi is not authenticated")
                     B = -1
                 else:
                     if dh['version'] == 1.0: # version
@@ -633,7 +571,7 @@ def controller():
     packet_in = sh.PacketIn()
     threads = []
     while True:
-        # print("[!] Waiting for receive something")
+        #print("[!] Waiting for receive something")
 
         def handle_thread_pkt_management(packet, threads):
             print("PACKET RECEIVED AT " + str(time.time()))
@@ -647,7 +585,7 @@ def controller():
         # we are using a filter for straining the packets escluding the grpc ones from our analysis
 
         my_filter = "ether proto arp or (ip host 192.168.56.6 and port host 80)"
-        # this filter is using the Berkeley Packet Filter https://biot.com/capstats/bpf.html the same one as tcpdump
+        # the scapy filter is using the Berkeley Packet Filter https://biot.com/capstats/bpf.html the same one as tcpdump
         # https://stackoverflow.com/questions/37453283/filter-options-for-sniff-function-in-scapy
 
         # https://github.com/secdev/scapy/blob/246ad3fecbd218e6cd57705b1b42a8a5a0714652/scapy/sendrecv.py#L1307

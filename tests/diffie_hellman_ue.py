@@ -82,14 +82,13 @@ def key_exchange():
     controller_ip = "192.168.56.2"
     key = ''
     key_port = 100
-    #source_port = 91 #used to specify source iface
     iface = "eth0"
     imsi = "310170845466094"
     service_name = "serviceName"
     master_key = ""
 
-
     master_key = dh(imsi, controller_ip, key_port, service_name)
+
     print("master_key: " + master_key)
     if master_key == -1:
         print("something was wrong...")

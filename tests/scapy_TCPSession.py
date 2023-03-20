@@ -65,9 +65,6 @@ class TcpSession:
     def __init__(self,ip_src,ip_dst,sport,dport):
         self.seq = 0
         self.ack = 0
-        #self.ip = IP(dst=target[0])
-        #self.sport = 1337
-        #self.dport = target[1]
         self.ip = IP(src=ip_src,dst=ip_dst,proto=6)
         self.sport = sport
         self.dport = dport
@@ -119,22 +116,22 @@ class TcpSession:
         self.seq = random.randrange(0,(2**32)-1)
 
         presyn = self.ip/TCP(sport=self.sport, dport=self.dport, seq=self.seq, flags='S')
-        #syn = NSH(mdtype=2)/NSHTLV(length=len(hmac_hex), metadata=hmac_hex)/self.ip/TCP(sport=self.sport, dport=self.dport, seq=self.seq, flags='S')
+        #syn = NSH(mdtype=2)/NSHTLV(length=len(hmac_hex), metadata=Raw(hmac_hex))/presyn
         #syn = NSH(mdtype=1,nextproto=1,length=len(hmac_hex),context_header=hmac_hex)/presyn
         syn = NSH(mdtype=1,nextproto=1,context_header=hash_hex)/presyn
         #syn.show()
+
         # https://scapy.readthedocs.io/en/latest/api/scapy.sendrecv.html
         #syn_ack = sr1(syn, timeout=self._timeout, iface='eth1', filter='tcp')
 
-        # the sr1 didn't give me back the answer (which theoretically WAS CORRECT...)
-
+        # the sr1 didn't give us back the answer (which theoretically WAS CORRECT...)
+        # so, we decide to go with a L3RawSocket
         send(syn)
         s = L3RawSocket()
         syn_ack = s.recv()
         #syn_ack.show()
         s.close()
 
-        #syn_ack = sr1(syn,timeout=self._timeout)
         self.seq += 1
         
         assert syn_ack.haslayer(TCP) , 'TCP layer missing'

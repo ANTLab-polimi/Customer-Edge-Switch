@@ -7,9 +7,7 @@ self_ip = "192.168.56.6"
 iface = "eth1"
 http_port = 80
 
-'''
-    it's a simple echo socket TCP on the service port
-'''
+# it's a simple echo socket TCP on the service port
 def dst_test():
     
     print("OPEN AN ECHO SOCKET TCP ON PORT " + str(http_port))
@@ -49,27 +47,6 @@ def dst_test():
             finally:
                 conn.close()
 
-'''
-This is not necessary for us but it's a way to use the socket raw (not tested)
-def dst_test():
 
-    # create a raw socket and bind it to the host we want
-    s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
-    s.bind((host,http_port))
-
-    # Include IP headers
-    s.setsockopt(socket.IPPROTO_IP, socket-IP_HDRINCL, 1)
-
-    # receive all packages
-    s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-
-    #receive a package
-    print(s.recvfrom(65565))
-
-    # disabled promiscuous mode
-    s.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
-
-    s.send("Hello client!")
-'''
 if __name__ == "__main__":
     dst_test()
