@@ -123,6 +123,7 @@ header tcp_t {
     bit<16> urgentPtr;
 }
 
+// https://datatracker.ietf.org/doc/html/rfc768
 header udp_t {
     bit<16> srcPort;
     bit<16> dstPort;
@@ -141,6 +142,7 @@ header packet_in_header_t {
 // user metadata
 struct metadata_t {
     bit<16> tcpLength;
+    bit<16> udpLength;
     bit<1> checked_nsh;
     bit<32> tmp1;
     bit<32> tmp2;
@@ -192,6 +194,7 @@ parser my_parser(   packet_in packet,
         packet.extract(hdr.ipv4);
         // needed for doing a correct checksum
         meta.tcpLength = hdr.ipv4.totalLen - 20;
+        meta.udpLength = hdr.ipv4.totalLen - 20;
         // https://www.rfc-editor.org/rfc/rfc790
         transition select(hdr.ipv4.protocol) {
             6: parse_tcp;
@@ -265,10 +268,18 @@ control my_ingress( inout headers_t hdr,
         ethernet_forward(dstAddr, srcAddr);
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
         // setting the register so the packet traffic between the client and server can be authorized automatically in the data plane
-        hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, src_port, dst_port, hdr.ipv4.protocol}, (bit<32>)4096);
-        hash(meta.tmp2, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dstAddr, hdr.ipv4.srcAddr, dst_port, src_port, hdr.ipv4.protocol}, (bit<32>)4096);
-        checked_nsh_reg.write(meta.tmp1, (bit<1>)1);
-        checked_nsh_reg.write(meta.tmp2, (bit<1>)1);
+        if (hdr.tcp.protocol == 6) {
+            hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, src_port, dst_port, hdr.ipv4.protocol}, (bit<32>)4096);
+            hash(meta.tmp2, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dstAddr, hdr.ipv4.srcAddr, dst_port, src_port, hdr.ipv4.protocol}, (bit<32>)4096);
+            checked_nsh_reg.write(meta.tmp1, (bit<1>)1);
+            checked_nsh_reg.write(meta.tmp2, (bit<1>)1);
+        }
+        // UDP processing only in uplink
+        else if (hdr.tcp.protocol == 17) {
+            hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, src_port, dst_port, hdr.ipv4.protocol}, (bit<32>)4096);
+            checked_nsh_reg.write(meta.tmp1, (bit<1>)1);
+        }
+
 
         // @field_list(CLONE_FL_1) in the components up we want to preserve for the controller
         // clone_preserving_field_list(CloneType.I2E, I2E_CLONE_SESSION_ID, CLONE_FL_1);
@@ -490,6 +501,21 @@ control my_compute_checksum(    inout headers_t hdr,
                 hdr.tcp.urgentPtr
             },
             hdr.tcp.checksum,
+            HashAlgorithm.csum16
+        );
+
+        update_checksum_with_payload ( hdr.udp.isValid(),
+            { 
+                hdr.ipv4.srcAddr,
+                hdr.ipv4.dstAddr,
+                8w0,
+                hdr.ipv4.protocol,
+                meta.udpLength,
+                hdr.udp.srcPort,
+                hdr.udp.dstPort,
+                hdr.udp.length_
+            },
+            hdr.udp.checksum,
             HashAlgorithm.csum16
         );
     }
