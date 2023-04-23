@@ -31,7 +31,8 @@ def dst_test():
                 # loop to echo the data
                 i = 0
                 while True:
-                    time.sleep(2)
+                    time.sleep(0.1)
+                    conn.settimeout(5)
                     data = conn.recv(1024)
                     if not data and i < 5:
                         print("NO DATA :(")
@@ -44,6 +45,8 @@ def dst_test():
                         print("DATA RECEIVED: " + str(data))
                         msg = b"HELLO FROM THE SERVER :D"
                         conn.send(msg)
+            except:
+                print("timeout...")
             finally:
                 conn.close()
 

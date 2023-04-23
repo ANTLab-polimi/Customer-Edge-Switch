@@ -6,6 +6,7 @@ import json
 from json import JSONEncoder
 import socket
 import os
+import time
 
 
 def isPrime(k):
@@ -87,7 +88,13 @@ def key_exchange():
     service_name = "serviceName"
     master_key = ""
 
+    start_dh = time.time()
+    print("START KEY EXCHANGE" + str(start_dh))
     master_key = dh(imsi, controller_ip, key_port, service_name)
+    print("FINISH KEY EXCHANGE" + str(start_dh))
+    finish_dh = time.time()
+
+    print("KEY EXCHANGE TIME: " + str(finish_dh - start_dh))
 
     print("master_key: " + master_key)
     if master_key == -1:

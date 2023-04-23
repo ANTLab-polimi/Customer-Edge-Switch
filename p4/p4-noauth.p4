@@ -178,15 +178,6 @@ parser my_parser(   packet_in packet,
 
     state parse_ethernet {
         packet.extract(hdr.ethernet);
-        transition select (hdr.ethernet.etherType) {
-            0x894f: parse_nsh;
-            default: parse_ipv4;
-        }
-    }
-
-    state parse_nsh {
-        // if there is a NSH header extract it
-        packet.extract(hdr.nsh);
         transition parse_ipv4;
     }
 
@@ -225,10 +216,6 @@ control my_verify_checksum( inout headers_t hdr,
     }
 }
 
-//https://p4.org/p4-spec/docs/PSA-v1.2.html#sec-registers
-// register to keep if a packet traffic is authorized or not
-register<bit<1>>(32w4096) checked_nsh_reg;
-
   /**************/
  /*  INGRESS  */
 /************/
@@ -259,42 +246,6 @@ control my_ingress( inout headers_t hdr,
         standard_metadata.egress_spec = CONTROLLER_PORT;
     } 
 
-    action hmac_forward(EthernetAddress dstAddr, EthernetAddress srcAddr) {
-        // I have to clone the packet to notify the controller that I have received
-        // a packet with a correct hmac inside the NSH.
-        // I can duplicate it for the controller and the real packet can go towards the destination
-        // to the destination egress port, in our case is the second port
-        standard_metadata.egress_spec = 2;
-        ethernet_forward(dstAddr, srcAddr);
-        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
-        // setting the register so the packet traffic between the client and server can be authorized automatically in the data plane
-        hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, src_port, dst_port, hdr.ipv4.protocol}, (bit<32>)4096);
-        hash(meta.tmp2, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dstAddr, hdr.ipv4.srcAddr, dst_port, src_port, hdr.ipv4.protocol}, (bit<32>)4096);
-        checked_nsh_reg.write(meta.tmp1, (bit<1>)1);
-        checked_nsh_reg.write(meta.tmp2, (bit<1>)1);
-
-
-        // @field_list(CLONE_FL_1) in the components up we want to preserve for the controller
-        // clone_preserving_field_list(CloneType.I2E, I2E_CLONE_SESSION_ID, CLONE_FL_1);
-        // REMEMBER TO OPEN ANOTHER TERMINAL TO ACTIVATE THE simple_switch_CLI AND PRINTING THE COMMAND mirroring_add <mirror_id> <egress_port>
-        // our command is -> mirroring_add 5 255
-        // mirroring_add I2E_CLONE_SESSION_ID CONTROL_PORT
-        clone(CloneType.I2E, I2E_CLONE_SESSION_ID);
-    }
-
-    table hmac {
-        key = {
-            hdr.nsh.metadata_payload: exact;
-        }
-        actions = {
-            hmac_forward;
-            NoAction;
-            drop;
-        }
-        size = 1024;
-        default_action = drop;
-    }
-
     table forward {
         key = {
             hdr.ipv4.srcAddr: exact;
@@ -315,63 +266,19 @@ control my_ingress( inout headers_t hdr,
 
     apply {
 
-        // ----- ----- ----- ----- CHECKING IF THE PACKET WAS PREVIOUSLY AUTHORISED ----- ----- ----- -----
-
-        // if the packet has no tcp or udp header is considered not authorized
-        if (!hdr.tcp.isValid() && !hdr.udp.isValid()) {
-            meta.checked_nsh = 0;
+        if (hdr.tcp.isValid()){
+            src_port = hdr.tcp.srcPort;
+            dst_port = hdr.tcp.dstPort;
+            forward.apply();
+        }
+        else if (hdr.udp.isValid()){
+            src_port = hdr.udp.srcPort;
+            dst_port = hdr.udp.dstPort;
+            forward.apply();
         }
         else {
-            // checking if it was previously authorized or not
-            if (hdr.tcp.isValid()) {
-                src_port = hdr.tcp.srcPort;
-                dst_port = hdr.tcp.dstPort;
-            }
-            else if (hdr.udp.isValid()) {
-                src_port = hdr.udp.srcPort;
-                dst_port = hdr.udp.dstPort;
-            }
-            hash(meta.tmp1, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, src_port, dst_port, hdr.ipv4.protocol}, (bit<32>)4096);
-            checked_nsh_reg.read(meta.checked_nsh, meta.tmp1);
-        }
-
-        // ----- ----- ----- ----- STARTING ELABORATING THE FLOW OF THE PACKET ----- ----- ----- -----
-
-        if (meta.checked_nsh != (bit<1>)1 ) {
-            // this packet needs a check on table nsh
-            if (hdr.nsh.isValid()){
-                // check if the nsh is matching
-                hmac.apply();
-            }
-            else if (hdr.ipv4.isValid() && !hdr.tcp.isValid() && !hdr.udp.isValid()) {
-                // if there is no nsh header but there is an IPv4 header, send it to the controller
-                // because it could be a icmp/arp packet
-                send_to_controller();
-
-            }
-            else {
-                // no significant or malicious packet -> dropping it
-                drop();
-            }
-            
-        }
-        else {
-            // this packet was previously authorized so can go on if a rule for it is present 
-            if (hdr.tcp.isValid()){
-                src_port = hdr.tcp.srcPort;
-                dst_port = hdr.tcp.dstPort;
-                forward.apply();
-            }
-            else if (hdr.udp.isValid()){
-                src_port = hdr.udp.srcPort;
-                dst_port = hdr.udp.dstPort;
-                forward.apply();
-            }
-            else {
-                // if it is authorized but malformatted -> dropping it
-                drop();
-            }
-
+            // if it is authorized but malformatted -> dropping it
+            drop();
         }
 
     }
@@ -427,25 +334,7 @@ control my_egress(  inout headers_t hdr,
 {
     debug_std_meta() debug_std_meta_egress_end;
 
-    apply{
-        // if it has a nsh header, we modify the ethertype in a ipv4 type
-        // because we will remove the header from the packet and
-        // outside the network cannot be the NSH header
-        if (hdr.nsh.isValid()) {
-            hdr.ethernet.etherType = TYPE_IPV4;
-        }
-        // if it is a cloned packet, send it to the controller to notify that
-        // an hmac match is happened so he can handle this match and insert the strict rules
-        if(standard_metadata.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE){
-            standard_metadata.egress_spec = CONTROLLER_PORT;
-            //meta.debug = 1;
-        }
-
-        // it was only for debug purpose
-        //if(meta.debug == 1) {
-        //    debug_std_meta_egress_end.apply(standard_metadata, meta);
-        //}
-    }
+    apply{}
 }
 
   /**************************/
@@ -522,10 +411,7 @@ control my_deparser(    packet_out packet,
                         in headers_t hdr)
 {
     apply {
-        //packet.emit(hdr.packet_in);
-        //packet.emit(hdr.packet_out);
         packet.emit(hdr.ethernet);
-        // no NSH outside our "network"
         packet.emit(hdr.ipv4);
         packet.emit(hdr.tcp);
         packet.emit(hdr.udp);

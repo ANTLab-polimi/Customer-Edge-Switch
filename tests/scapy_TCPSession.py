@@ -59,6 +59,9 @@ from scapy.all import *
 from scapy.contrib.nsh import *
 from threading import Thread
 from scapy.packet import *
+import time
+from scapy.sendrecv import *
+from scapy.arch.linux import *
 
 class TcpSession:
 
@@ -121,19 +124,36 @@ class TcpSession:
         syn = NSH(mdtype=1,nextproto=1,context_header=hash_hex)/presyn
         #syn.show()
 
+        nsh_go = time.time()
         # https://scapy.readthedocs.io/en/latest/api/scapy.sendrecv.html
-        #syn_ack = sr1(syn, timeout=self._timeout, iface='eth1', filter='tcp')
+        #syn_ack = srp1(syn, timeout=self._timeout, iface='eth1', filter='tcp')
 
         # the sr1 didn't give us back the answer (which theoretically WAS CORRECT...)
         # so, we decide to go with a L3RawSocket
-        send(syn)
+        #nsh_go = time.time()
+        #print("SENDING NSH : " + str(nsh_go))
+        #scapy.sendrecv.send(syn)
+        # used to test
+        syn = Ether(dst="ff:ff:ff:ff:ff:ff")/presyn
+        scapy.sendrecv.sendp(syn)
+        # used to test
         s = L3RawSocket()
+        #s =  conf.L2Socket()
+        #s.send(Ether(dst="08:00:27:f8:2e:fb")/syn)
+        # used to test
         syn_ack = s.recv()
+        #syn_ack = scapy.sendrecv.sniff(iface='eth1', filter='tcp and host 192.168.56.6', count=1)
+        #syn_ack.summary()
+        nsh_arrive = syn_ack.time
+        #syn_ack = s.sr1(Ether(dst="ff:ff:ff:ff:ff:ff")/syn)
+        #print("NSH ACK ARRIVED: " + str(nsh_arrive))
+        #print("RTT for syn NO NSH: " + str(nsh_arrive - nsh_go))
+        print("RTT for syn SIIIIIIIIII NSH: " + str(nsh_arrive - nsh_go))
         #syn_ack.show()
-        s.close()
-
+        #s.close()
+        print("SEQUENCE NUMBER TO CHECK: " + str(self.seq))
         self.seq += 1
-        
+
         assert syn_ack.haslayer(TCP) , 'TCP layer missing'
         assert syn_ack[TCP].flags & 0x12 == 0x12 , 'No SYN/ACK flags'
         assert syn_ack[TCP].ack == self.seq , 'Acknowledgment number error'

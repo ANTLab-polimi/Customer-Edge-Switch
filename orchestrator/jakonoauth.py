@@ -240,7 +240,7 @@ def addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src, who):
                 break
         return
 
-    open_entry_timeout = threading.Thread(target = entry_timeout, args = (ip_dst, ip_src, port, ether_src,)).start()
+    #open_entry_timeout = threading.Thread(target = entry_timeout, args = (ip_dst, ip_src, port, ether_src,)).start()
 
 # add a new "strict" (sport -> microsegmentation) entry
 def addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
@@ -517,15 +517,12 @@ def controller():
         device_id=1,
         grpc_addr='127.0.0.1:50051', #substitute ip and port with the ones of the specific switch
         election_id=(1, 0), # (high, low)
-        config=sh.FwdPipeConfig('../p4/test.p4info.txt','../p4/test.json')
+        config=sh.FwdPipeConfig('../p4/testnoauth.p4info.txt','../p4/testnoauth.json')
     )
 
     # deletion of already-present entries
     print("[!] Entries initial deletion")
     for te in sh.TableEntry("my_ingress.forward").read():
-        te.delete()
-
-    for te in sh.TableEntry("my_ingress.hmac").read():
         te.delete()
 
     # get and save policies_list
@@ -574,12 +571,18 @@ def controller():
                 connection.send(bytes(str(B), 'utf-8'))
 
 
-    threading.Thread(target = dh_thread).start()
+    #threading.Thread(target = dh_thread).start()
 
     # listening for new packets
     # p4runtime_sh.shell.PacketIn()
     packet_in = sh.PacketIn()
     threads = []
+
+    #addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src, who):
+    addOpenEntry("192.168.56.1", "192.168.56.6", 80, "08:00:27:f8:2e:fb", 2, "08:00:27:80:e6:e5", "client")
+    addOpenEntry("192.168.56.6", "192.168.56.1", 80, "08:00:27:80:e6:e5", 1, "08:00:27:f8:2e:fb", "server")
+    print("ADDED STRICT ENTRIES AT " + str(time.time()))
+
     while True:
         #print("[!] Waiting for receive something")
 

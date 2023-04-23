@@ -60,6 +60,9 @@ def src_test():
     version = 1.0
     master_key = ""
 
+    start_hash = time.time()
+    print("STARTING HASH AT " + str(start_hash))
+
     # reading the master_key
 
     name_file = str(imsi) + "master_key.txt"
@@ -93,13 +96,16 @@ def src_test():
     # our special port (not one in common range)
     sport = 54321
 
+    start_TCPSYN = time.time()
+    print("SENDING TCP CONNECTION SYN AT " + str(start_TCPSYN))
+
     fake_socket = TcpSession(self_ip,dst_ip,sport,http_port)
 
     print("hash_hex: " + hash_hex)
     # to make executable the two shell script which HAVE TO BE ALREADY
     # PRESENT IT THE DIRECTORY
-    os.system('chmod +x disable_the_kernel_drop.sh')
-    os.system('chmod +x activate_the_kernel_drop.sh')
+    #os.system('chmod +x disable_the_kernel_drop.sh')
+    #os.system('chmod +x activate_the_kernel_drop.sh')
     # to temporary disable the RST tcp packet send from the kernel
     #subprocess.call(['sh','./disable_the_kernel_drop.sh'])
 
@@ -108,6 +114,10 @@ def src_test():
     #print(my_hash)
 
     fake_socket.connect(my_hash)
+
+    finish_TCPSYN = time.time()
+    print("RECEIVING TCP CONNECTION SYN ACK AT " + str(finish_TCPSYN))
+    print("TOTAL TIME threeway handshake TCP: " + str(finish_TCPSYN - start_TCPSYN))
     i = 0
     while i < 5:
         msg = 'HI FROM THE CLIENT! :D'
@@ -116,10 +126,10 @@ def src_test():
         i = i + 1
 
     fake_socket.close()
-
+    
 
     # to reactivate the eventually RST tcp packet send from the kernel
-    subprocess.call(['sh','./activate_the_kernel_drop.sh'])
+    #subprocess.call(['sh','./activate_the_kernel_drop.sh'])
 
 
 if __name__ == "__main__":
