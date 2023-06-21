@@ -17,10 +17,10 @@
  -
   method: 'token'
   user: 'abcdefghilmnopqrstuvz'
- tee: True # trusted execution environment
- fs_encr: False # file system encryption
- net_encr: False # network encryption
- sec_boot: True # secure boot
+ #tee: True # trusted execution environment
+ #fs_encr: False # file system encryption
+ #net_encr: False # network encryption
+ #sec_boot: True # secure boot
 
 -
  serviceName: "servicename2"
@@ -34,10 +34,10 @@
  -
   method: 'imsi'
   user: '5021301234567894'
- tee: True
- fs_encr: False
- net_encr: False
- sec_boot: True
+ #tee: True
+ #fs_encr: False
+ #net_encr: False
+ #sec_boot: True
 
 -
  serviceName: "servicename3"
@@ -51,10 +51,10 @@
  -
   method: 'imsi'
   user: '5021301234567894'
- tee: True
- fs_encr: False
- net_encr: False
- sec_boot: True
+ #tee: True
+ #fs_encr: False
+ #net_encr: False
+ #sec_boot: True
 
 -
  serviceName: "servicename4"
@@ -68,7 +68,7 @@
  -
   method: 'imsi'
   user: '5021301234567894'
- tee: True
- fs_encr: False
- net_encr: False
- sec_boot: True
+ #tee: True
+ #fs_encr: False
+ #net_encr: False
+ #sec_boot: True

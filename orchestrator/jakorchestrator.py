@@ -122,6 +122,9 @@ def mod_manager():
                                     for user in service.get("allowed_users"):
                                         if user.get("method") == ue.get("method") and user.get("user") == ue.get("user"):
                                             delUE(user.get("actual_ip"), policy.get("ip"))
+                
+                '''
+                Now these parameters are set in another different file, so there is no need to check them
 
                 if policy.get("tee") != policy_tmp.get("tee"):
                     print("[!] TEE_MODIFICATIONS")
@@ -134,6 +137,7 @@ def mod_manager():
 
                 if policy.get("sec_boot") != policy_tmp.get("sec_boot"):
                     print("[!] SEC_BOOT_MODIFICATIONS")
+                '''
 
                 break
 
