@@ -546,10 +546,20 @@ def controller():
         global policies_list
         host = "0.0.0.0"
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # for the TLS implementation: setting the SSLcontext
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile="../TLScertificate/MyCertificate.crt", keyfile="../TLScertificate/MyKey.key")
+
         s.bind((host, key_port))
         s.listen()
         while True:
             connection, client_address = s.accept()
+
+            # for the TLS implementation: wrapping the socket previously instantiated
+            connection = context.wrap_socket(connection, server_side=True)
+            print("SSL established. Peer: {}".format(connection.getpeercert()))
+
             with connection:
                 data = connection.recv(1024)
                 print(str(data))

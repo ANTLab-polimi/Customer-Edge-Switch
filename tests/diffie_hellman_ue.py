@@ -7,6 +7,7 @@ from json import JSONEncoder
 import socket
 import os
 import time
+import ssl
 
 
 def isPrime(k):
@@ -35,6 +36,42 @@ def netcat(hostname, port, content, a, p):
 
         if len(data) == 0:
             "nothing"
+        else:
+            key = key_computation(data)
+            print("DH FINISHED AT: " + str(time.time()))
+            break
+
+    s.close()
+    return key
+
+def TLSconnection(hostname, port, content, a, p):
+
+    key = ""
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # before we need to set the context https://docs.python.org/3/library/ssl.html#ssl.SSLContext
+    
+    # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.wrap_socket
+    # deprecated client = ssl.wrap_socket(client, keyfile="path/to/keyfile", certfile="path/to/certfile")
+    
+    context = ssl.create_default_context()
+    context.load_verify_locations("../TLScertificate/MyCertificate.crt")
+    client = context.wrap_socket(client, server_side=False, do_handshake_on_connect=True, server_hostname=hostname)
+    client.connect((hostname, port))
+
+    client.sendall(content)
+    time.sleep(0.1)
+
+    while True:
+        data = client.recv(1024)
+
+        def key_computation(pkt):
+            raw = str(data).split('\\')[0][2:]
+            B = int(raw[:-1])
+            key = hashlib.sha256(str((int(B)**int(a)) % int(p)).encode()).hexdigest()
+            return key
+
+        if len(data) == 0:
+            print("no data from controller")
         else:
             key = key_computation(data)
             print("DH FINISHED AT: " + str(time.time()))
@@ -72,7 +109,8 @@ def dh(identity,controller_ip,key_port, service_name):
     #[...] sends p, g, A to controller, waits for B
     dh = DH(p, g, A, imsi, 1.0, service_name)
     dh = MyEncoder().encode(dh)
-    key2 = netcat(controller_ip, key_port, bytes(dh, 'utf-8'), a, p)
+    #key2 = netcat(controller_ip, key_port, bytes(dh, 'utf-8'), a, p)
+    key2 = TLSconnection(controller_ip, key_port, bytes(dh, 'utf-8'), a, p)
 
     return key2
 
