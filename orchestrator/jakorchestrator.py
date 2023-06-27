@@ -545,19 +545,29 @@ def controller():
         global key_port
         global policies_list
         host = "0.0.0.0"
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_cert = "../TLScertificate/server.crt"
+        server_key = "../TLScertificate/server.key"
+        client_certs = "../TLScertificate/client.crt"
 
-        # for the TLS implementation: setting the SSLcontext
+        # for the TLS implementation: setting the SSLcontext for a mutual TLS connection
+        # The most recent version of mutual TLS: https://www.electricmonk.nl/log/2018/06/02/ssl-tls-client-certificate-verification-with-python-v3-4-sslcontext/
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        context.load_cert_chain(certfile="../TLScertificate/MyCertificate.crt", keyfile="../TLScertificate/MyKey.key")
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.load_cert_chain(    
+            certfile=server_cert,
+            keyfile=server_key
+            )
+        context.load_verify_locations(cafile=client_certs)
 
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((host, key_port))
         s.listen()
+
         while True:
-            connection, client_address = s.accept()
+            new_client, client_address = s.accept()
 
             # for the TLS implementation: wrapping the socket previously instantiated
-            connection = context.wrap_socket(connection, server_side=True)
+            connection = context.wrap_socket(new_client, server_side=True)
             print("SSL established. Peer: {}".format(connection.getpeercert()))
 
             with connection:

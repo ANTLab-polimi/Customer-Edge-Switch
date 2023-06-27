@@ -47,16 +47,38 @@ def netcat(hostname, port, content, a, p):
 def TLSconnection(hostname, port, content, a, p):
 
     key = ""
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # before we need to set the context https://docs.python.org/3/library/ssl.html#ssl.SSLContext
     
+    # before we need to set the context https://docs.python.org/3/library/ssl.html#ssl.SSLContext
     # https://docs.python.org/3/library/ssl.html#ssl.SSLContext.wrap_socket
     # deprecated client = ssl.wrap_socket(client, keyfile="path/to/keyfile", certfile="path/to/certfile")
-    
-    context = ssl.create_default_context()
-    context.load_verify_locations("../TLScertificate/MyCertificate.crt")
-    client = context.wrap_socket(client, server_side=False, do_handshake_on_connect=True, server_hostname=hostname)
+    # the most recent version of mutual TLS: https://www.electricmonk.nl/log/2018/06/02/ssl-tls-client-certificate-verification-with-python-v3-4-sslcontext/
+    server_sni_hostname = 'CES'
+    server_cert = "../TLScertificate/server.crt"
+    client_cert = "../TLScertificate/client.crt"
+    client_key = "../TLScertificate/client.key"
+
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=server_cert)
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.load_cert_chain(certfile=client_cert, keyfile=client_key)
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    if ssl.HAS_SNI:
+        client = context.wrap_socket(
+                    client,
+                    server_side=False,
+                    do_handshake_on_connect=True,
+                    server_hostname=server_sni_hostname
+                    )
+    else:
+        client = context.wrap_socket(
+                client,
+                server_side=False,
+                do_handshake_on_connect=True
+                )
+                
     client.connect((hostname, port))
+    print("SSL established. Peer: {}".format(conn.getpeercert()))
 
     client.sendall(content)
     time.sleep(0.1)

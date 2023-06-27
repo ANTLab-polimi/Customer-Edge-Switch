@@ -1,0 +1,25 @@
+To create a certificate, you need to use the openssl software.
+One of the possible source is: https://www.linode.com/docs/guides/create-a-self-signed-tls-certificate/
+
+The comand to digit is:
+>> openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out server.crt -keyout server.key
+
+Where:
+
+-newkey rsa:4096: Create a 4096 bit RSA key for use with the certificate.
+
+-x509: Create a self-signed x509 certificate 
+
+-sha256: Generate the certificate request using 256-bit SHA
+
+-days: Determines the length of time in days that the certificate is being issued for
+
+-nodes: Create a certificate that does not require a passphrase.
+        If this option is excluded, you will be requesred to enter the passphrase in the console each time the application using it is restarted
+
+For other option:
+>> man openssl
+
+
+For our goal: we want to have a mutual TLS connection between the AUSF node and the SDN controller.
+So, we need two couple of certificate and key.
