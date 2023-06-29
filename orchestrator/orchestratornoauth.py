@@ -122,9 +122,6 @@ def mod_manager():
                                     for user in service.get("allowed_users"):
                                         if user.get("method") == ue.get("method") and user.get("user") == ue.get("user"):
                                             delUE(user.get("actual_ip"), policy.get("ip"))
-                
-                '''
-                Now these parameters are set in another different file, so there is no need to check them
 
                 if policy.get("tee") != policy_tmp.get("tee"):
                     print("[!] TEE_MODIFICATIONS")
@@ -137,7 +134,6 @@ def mod_manager():
 
                 if policy.get("sec_boot") != policy_tmp.get("sec_boot"):
                     print("[!] SEC_BOOT_MODIFICATIONS")
-                '''
 
                 break
 
@@ -244,7 +240,7 @@ def addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src, who):
                 break
         return
 
-    open_entry_timeout = threading.Thread(target = entry_timeout, args = (ip_dst, ip_src, port, ether_src,)).start()
+    #open_entry_timeout = threading.Thread(target = entry_timeout, args = (ip_dst, ip_src, port, ether_src,)).start()
 
 # add a new "strict" (sport -> microsegmentation) entry
 def addEntry(ip_src, ip_dst, dport, sport, ether_dst, egress_port, ether_src):
@@ -521,15 +517,12 @@ def controller():
         device_id=1,
         grpc_addr='127.0.0.1:50051', #substitute ip and port with the ones of the specific switch
         election_id=(1, 0), # (high, low)
-        config=sh.FwdPipeConfig('../p4/test.p4info.txt','../p4/test.json')
+        config=sh.FwdPipeConfig('../p4/testnoauth.p4info.txt','../p4/testnoauth.json')
     )
 
     # deletion of already-present entries
     print("[!] Entries initial deletion")
     for te in sh.TableEntry("my_ingress.forward").read():
-        te.delete()
-
-    for te in sh.TableEntry("my_ingress.hmac").read():
         te.delete()
 
     # get and save policies_list
@@ -545,31 +538,11 @@ def controller():
         global key_port
         global policies_list
         host = "0.0.0.0"
-        server_cert = "../TLScertificate/server.crt"
-        server_key = "../TLScertificate/server.key"
-        client_certs = "../TLScertificate/client.crt"
-
-        # for the TLS implementation: setting the SSLcontext for a mutual TLS connection
-        # The most recent version of mutual TLS: https://www.electricmonk.nl/log/2018/06/02/ssl-tls-client-certificate-verification-with-python-v3-4-sslcontext/
-        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        context.verify_mode = ssl.CERT_REQUIRED
-        context.load_cert_chain(    
-            certfile=server_cert,
-            keyfile=server_key
-            )
-        context.load_verify_locations(cafile=client_certs)
-
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((host, key_port))
         s.listen()
-
         while True:
-            new_client, client_address = s.accept()
-
-            # for the TLS implementation: wrapping the socket previously instantiated
-            connection = context.wrap_socket(new_client, server_side=True)
-            print("SSL established. Peer: {}".format(connection.getpeercert()))
-
+            connection, client_address = s.accept()
             with connection:
                 data = connection.recv(1024)
                 print(str(data))
@@ -598,12 +571,18 @@ def controller():
                 connection.send(bytes(str(B), 'utf-8'))
 
 
-    threading.Thread(target = dh_thread).start()
+    #threading.Thread(target = dh_thread).start()
 
     # listening for new packets
     # p4runtime_sh.shell.PacketIn()
     packet_in = sh.PacketIn()
     threads = []
+
+    #addOpenEntry(ip_src, ip_dst, port, ether_dst, egress_port, ether_src, who):
+    addOpenEntry("192.168.56.1", "192.168.56.6", 80, "08:00:27:f8:2e:fb", 2, "08:00:27:80:e6:e5", "client")
+    addOpenEntry("192.168.56.6", "192.168.56.1", 80, "08:00:27:80:e6:e5", 1, "08:00:27:f8:2e:fb", "server")
+    print("ADDED STRICT ENTRIES AT " + str(time.time()))
+
     while True:
         #print("[!] Waiting for receive something")
 
