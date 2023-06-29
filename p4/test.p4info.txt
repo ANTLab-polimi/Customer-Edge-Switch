@@ -3,6 +3,29 @@ pkg_info {
 }
 tables {
   preamble {
+    id: 39274346
+    name: "my_ingress.hmac"
+    alias: "hmac"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.nsh.metadata_payload"
+    bitwidth: 128
+    match_type: EXACT
+  }
+  action_refs {
+    id: 29296926
+  }
+  action_refs {
+    id: 21257015
+  }
+  action_refs {
+    id: 28045422
+  }
+  size: 1024
+}
+tables {
+  preamble {
     id: 42272129
     name: "my_ingress.forward"
     alias: "forward"
@@ -88,6 +111,38 @@ actions {
     name: "my_ingress.send_to_controller"
     alias: "send_to_controller"
   }
+}
+actions {
+  preamble {
+    id: 29296926
+    name: "my_ingress.hmac_forward"
+    alias: "hmac_forward"
+  }
+  params {
+    id: 1
+    name: "dstAddr"
+    bitwidth: 48
+  }
+  params {
+    id: 2
+    name: "srcAddr"
+    bitwidth: 48
+  }
+}
+registers {
+  preamble {
+    id: 374761818
+    name: "checked_nsh_reg"
+    alias: "checked_nsh_reg"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 1
+      }
+    }
+  }
+  size: 4096
 }
 type_info {
 }
