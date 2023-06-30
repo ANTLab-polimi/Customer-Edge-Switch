@@ -36,7 +36,7 @@ class MyEncoder(JSONEncoder):
     def default(self, obj):
         return obj.__dict__
 
-controller_ip = '192.168.56.2'
+controller_ip = '192.168.1.2'
 key_port = 100
 # WE ARE SUPPOSING THAT THE PORT IS A FIXED ONE AND THAT WE KNOW IT
 http_port = 80
@@ -454,7 +454,7 @@ def packetHandler(streamMessageResponse):
         reply = False
 
         # my_filter = "ether proto arp or (ip host 192.168.56.6 and port host 80 and not rpc)"
-        if pkt_arp != None or ( (pkt_tcp != None or pkt_udp != None) and (sport == http_port or dport == http_port) and (pkt_src == "192.168.56.6"  or pkt_dst == "192.168.56.6")):
+        if pkt_arp != None or ( (pkt_tcp != None or pkt_udp != None) and (sport == http_port or dport == http_port) and (pkt_src == "192.168.2.2"  or pkt_dst == "192.168.2.2")):
         
             # check for waited replies in open_entry_history
             for dictionary in open_entry_history:
@@ -564,10 +564,10 @@ def controller():
         s.listen()
 
         while True:
-            new_client, client_address = s.accept()
+            connection, client_address = s.accept()
 
             # for the TLS implementation: wrapping the socket previously instantiated
-            connection = context.wrap_socket(new_client, server_side=True)
+            connection = context.wrap_socket(connection, server_side=True) 
             print("SSL established. Peer: {}".format(connection.getpeercert()))
 
             with connection:

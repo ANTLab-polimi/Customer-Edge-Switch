@@ -4,13 +4,13 @@
 # policies:
 -
  serviceName: "serviceName" # application name
- ip: '192.168.56.6' # service IP
+ ip: '192.168.2.2' # service IP
  port: 80 # service port
  protocol: TCP # protocol
  allowed_users: 
  -
   method: 'ip' # other auth method: IMSI, SPA, ...
-  user: '192.168.56.1' # ip user allowed
+  user: '192.168.1.1' # ip user allowed
  -
   method: 'imsi'
   user: '310170845466094'
