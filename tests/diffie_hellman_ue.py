@@ -78,7 +78,7 @@ def TLSconnection(hostname, port, content, a, p):
                 )
                 
     client.connect((hostname, port))
-    print("SSL established. Peer: {}".format(conn.getpeercert()))
+    print("SSL established. Peer: {}".format(client.getpeercert()))
 
     client.sendall(content)
     time.sleep(0.1)
@@ -99,7 +99,7 @@ def TLSconnection(hostname, port, content, a, p):
             print("DH FINISHED AT: " + str(time.time()))
             break
 
-    s.close()
+    client.close()
     return key
 
 # Auth(dst_ip, method, self_ip, http_port, protocol, imsi, count, version)
@@ -139,11 +139,11 @@ def dh(identity,controller_ip,key_port, service_name):
 
 
 def key_exchange():
-    self_ip = "192.168.56.1"
-    controller_ip = "192.168.56.2"
+    self_ip = "192.168.1.1"
+    controller_ip = "192.168.1.2"
     key = ''
     key_port = 100
-    iface = "eth0"
+    iface = "enp3s0"
     imsi = "310170845466094"
     service_name = "serviceName"
     master_key = ""

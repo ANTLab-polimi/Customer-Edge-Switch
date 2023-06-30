@@ -42,11 +42,11 @@ class MyEncoder(JSONEncoder):
 def src_test():
 
     # here we need to read from the file the key exchanged
-    controller_ip = '192.168.56.2'
+    controller_ip = '192.168.1.2'
     # self_ip is the ip of the vm hydrogen because the 5G tunnel is not working for the moment
-    self_ip = "192.168.56.1"
-    dst_ip = "192.168.56.6"
-    iface = 'eth0'
+    self_ip = "192.168.1.1"
+    dst_ip = "192.168.2.2"
+    iface = 'enp3s0'
     key_port = 100
     http_port = 80
     protocol = "TCP"
