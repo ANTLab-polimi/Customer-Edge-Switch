@@ -301,7 +301,7 @@ control my_ingress( inout headers_t hdr,
             hdr.ipv4.dstAddr: exact;
             // ternary to use wildcards
             src_port: ternary;
-            dst_port: exact;
+            dst_port: ternary;
         }
         actions = {
             ipv4_forward;

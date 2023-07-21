@@ -14,6 +14,7 @@ import inotify.adapters
 import json, base64
 import hmac
 import socket
+import ssl
 import json
 from json import JSONEncoder
 from scapy.contrib.nsh import *
@@ -521,7 +522,7 @@ def controller():
         device_id=1,
         grpc_addr='127.0.0.1:50051', #substitute ip and port with the ones of the specific switch
         election_id=(1, 0), # (high, low)
-        config=sh.FwdPipeConfig('../p4/test.p4info.txt','../p4/test.json')
+        config=sh.FwdPipeConfig('../p4/p4-test.p4info.txt','../p4/p4-test.json')
     )
 
     # deletion of already-present entries
@@ -531,6 +532,11 @@ def controller():
 
     for te in sh.TableEntry("my_ingress.hmac").read():
         te.delete()
+
+    # enabling the cloning session with session_id 5 to the SDN controller
+    cse = sh.CloneSessionEntry(5)
+    cse.add(255,1)
+    cse.insert()
 
     # get and save policies_list
     getPolicies()
