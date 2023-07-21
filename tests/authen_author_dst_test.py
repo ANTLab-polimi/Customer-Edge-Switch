@@ -1,10 +1,10 @@
 import socket
 import time
 
-controller_ip = "192.168.56.2"
+controller_ip = "192.168.2.1"
 host = "0.0.0.0"
-self_ip = "192.168.56.6"
-iface = "eth1"
+self_ip = "192.168.2.2"
+iface = "eno1"
 http_port = 80
 
 # it's a simple echo socket TCP on the service port
