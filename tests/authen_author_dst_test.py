@@ -30,23 +30,29 @@ def dst_test():
                 print(f"Connected by {addr}")
                 # loop to echo the data
                 i = 0
+                j = 1
                 while True:
                     time.sleep(0.1)
-                    conn.settimeout(5)
+                    #conn.settimeout(5)
+                    print(f"Waiting for data...")
                     data = conn.recv(1024)
                     if not data and i < 5:
                         print("NO DATA :(")
                         i = i + 1
                     elif not data and i >= 5:
                         # listen another connection
+                        print(f"Switching to another connection...")
                         i = 0
                         break
                     else:
                         print("DATA RECEIVED: " + str(data))
-                        msg = b"HELLO FROM THE SERVER :D"
+                        msg = bytes(str(j), 'utf-8') + b") HELLO FROM THE SERVER :D"
+                        time.sleep(0.1)
                         conn.send(msg)
-            except:
-                print("timeout...")
+                        j = j + 1
+                        print(msg)
+            except Exception as e:
+                print(e)
             finally:
                 conn.close()
 
