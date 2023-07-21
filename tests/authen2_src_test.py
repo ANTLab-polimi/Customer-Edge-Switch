@@ -6,6 +6,7 @@ import json
 from json import JSONEncoder
 import hmac, hashlib, base64, random
 from scapy_TCPSession import *
+from TCP_session import *
 import subprocess
 import os
 import binascii
@@ -95,11 +96,10 @@ def src_test():
     
     # our special port (not one in common range)
     sport = 54321
+    m_iface = "enp3s0"
 
-    start_TCPSYN = time.time()
-    print("SENDING TCP CONNECTION SYN AT " + str(start_TCPSYN))
-
-    fake_socket = TcpSession(self_ip,dst_ip,sport,http_port)
+    #fake_socket = TcpSession(self_ip,dst_ip,sport,http_port)
+    fake_socket = TCP_Session(self_ip,dst_ip,sport,http_port, m_iface)
 
     print("hash_hex: " + hash_hex)
     # to make executable the two shell script which HAVE TO BE ALREADY
@@ -112,20 +112,58 @@ def src_test():
     # starting simulating the TCP userstack session
     my_hash = binascii.unhexlify(hash_hex)
     #print(my_hash)
+    sniffer = fake_socket.threaded_sniff()
+
+    start_TCPSYN = time.time()
+    print("SENDING TCP CONNECTION SYN AT " + str(start_TCPSYN))
 
     fake_socket.connect(my_hash)
 
     finish_TCPSYN = time.time()
     print("RECEIVING TCP CONNECTION SYN ACK AT " + str(finish_TCPSYN))
     print("TOTAL TIME threeway handshake TCP: " + str(finish_TCPSYN - start_TCPSYN))
-    i = 0
-    while i < 5:
-        msg = 'HI FROM THE CLIENT! :D'
-        fake_socket.send(msg)
-        fake_socket.my_sniff()
-        i = i + 1
+    i = 1
+    j = 0
+    disconnection = False
+    while j < 2:
+        msg = str(i) + ') HI FROM THE CLIENT! :D'
+        # to clear the sniffer before sending a message
+        while fake_socket.q.qsize() > 0:
+            fake_socket.q.get(block=True)
+        print("sending a message to the server...")
+        time.sleep(0.1)
+        fake_socket.send_data(msg)
 
-    fake_socket.close()
+        print("waiting the answer")
+        # waiting for an answer to the previous message
+        out = False
+        while(not out and j < 2):
+            try:
+                packet = fake_socket.q.get(block=True, timeout=fake_socket._timeout)
+
+                if packet[TCP].flags & 0x01 != 0x01:
+                    # the packet contains something and it is a PA
+                    if packet[TCP].flags == 'PA':
+                        print(packet.getlayer(Raw).load)
+                        fake_socket._ack(packet)
+                        out = True
+                else:
+                    fake_socket._ack_rclose()
+                    disconnection = True
+            except Empty:
+                print('[TEST] Queue timeout')
+                j = j + 1
+
+        i = i + 1
+    if j >= 2:
+        print("The server is not answering...")
+    try:
+        sniffer._stop()
+    except Exception as e:
+        print(e)
+
+    if not disconnection:
+        fake_socket.close()
     
 
     # to reactivate the eventually RST tcp packet send from the kernel

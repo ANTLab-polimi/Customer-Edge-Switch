@@ -93,10 +93,8 @@ class TcpSession:
         assert ack[TCP].ack == self.seq , 'Acknowledgment number error'
       
     def my_sniff(self):
-        s = L3RawSocket()
-        pkt = s.recv()
+        pkt = scapy.sendrecv.sniff(iface='enp3s0', filter='tcp and src 192.168.2.2', timeout=10, count=1)
         print(pkt.payload)
-        s.close()
 
     def _sniff(self):
         s = L3RawSocket()
@@ -124,7 +122,9 @@ class TcpSession:
         syn = NSH(mdtype=1,nextproto=1,context_header=hash_hex)/presyn
         #syn.show()
 
-        nsh_go = time.time()
+        #nsh_go = time.time()
+        # used to test
+        syn = Ether(dst="ff:ff:ff:ff:ff:ff")/syn
         # https://scapy.readthedocs.io/en/latest/api/scapy.sendrecv.html
         #syn_ack = srp1(syn, timeout=self._timeout, iface='eth1', filter='tcp')
 
@@ -133,30 +133,59 @@ class TcpSession:
         #nsh_go = time.time()
         #print("SENDING NSH : " + str(nsh_go))
         #scapy.sendrecv.send(syn)
-        # used to test
-        syn = Ether(dst="ff:ff:ff:ff:ff:ff")/presyn
-        scapy.sendrecv.sendp(syn)
-        # used to test
         s = L3RawSocket()
-        #s =  conf.L2Socket()
-        #s.send(Ether(dst="08:00:27:f8:2e:fb")/syn)
+        t = AsyncSniffer(iface="enp3s0", filter="src host 192.168.2.2 && src port 80 && (tcp[13] & 0x12) == 0x12  ", opened_socket=s)
+        #syn_ack = srp1(syn, timeout=10, iface='enp3s0', filter='src host 192.168.2.2 && src port 80 && tcp')
+        t.start()
+        #print("sending the syn packet with NSH")
+        scapy.sendrecv.sendp(syn, iface='enp3s0')
         # used to test
-        syn_ack = s.recv()
-        #syn_ack = scapy.sendrecv.sniff(iface='eth1', filter='tcp and host 192.168.56.6', count=1)
-        #syn_ack.summary()
-        nsh_arrive = syn_ack.time
+        
+        #s =  conf.L2Socket()
+        #s.send(syn)
+        # used to test
+        syn_ack = t.stop()
+        
+        #syn_ack = scapy.sendrecv.sniff(iface='enp3s0', filter='tcp and src 192.168.2.2', timeout=10, count=1)
+        '''
+        print(len(syn_ack))
+
+        if len(syn_ack) > 0:
+            for j in syn_ack:
+                j.show()
+        '''
+        #nsh_arrive = syn_ack.time
         #syn_ack = s.sr1(Ether(dst="ff:ff:ff:ff:ff:ff")/syn)
         #print("NSH ACK ARRIVED: " + str(nsh_arrive))
         #print("RTT for syn NO NSH: " + str(nsh_arrive - nsh_go))
-        print("RTT for syn SIIIIIIIIII NSH: " + str(nsh_arrive - nsh_go))
+        #print("RTT for syn SIIIIIIIIII NSH: " + str(nsh_arrive - nsh_go))
         #syn_ack.show()
-        #s.close()
+        
         print("SEQUENCE NUMBER TO CHECK: " + str(self.seq))
         self.seq += 1
 
-        assert syn_ack.haslayer(TCP) , 'TCP layer missing'
-        assert syn_ack[TCP].flags & 0x12 == 0x12 , 'No SYN/ACK flags'
-        assert syn_ack[TCP].ack == self.seq , 'Acknowledgment number error'
+        #assert syn_ack.haslayer(TCP) , 'TCP layer missing'
+        out = False
+        
+        #s.send(syn)
+        syn_ack = syn_ack[0]
+        if syn_ack.haslayer(TCP):
+            if syn_ack[TCP].flags & 0x12 == 0x12:
+                if syn_ack[TCP].ack == self.seq:
+                    out = True
+                else:
+                    print('Acknowledgment number error')
+                    return
+            else:
+                print('No SYN/ACK flags')
+                return
+        else:
+            print('TCP layer missing')
+            return
+            
+        #s.close()
+        #assert syn_ack[TCP].flags & 0x12 == 0x12 , 'No SYN/ACK flags'
+        #assert syn_ack[TCP].ack == self.seq , 'Acknowledgment number error'
 
         self.ack = syn_ack[TCP].seq + 1
         ack = self.ip/TCP(sport=self.sport, dport=self.dport, seq=self.seq, flags='A', ack=self.ack)
