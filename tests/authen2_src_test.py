@@ -10,6 +10,7 @@ from TCP_session import *
 import subprocess
 import os
 import binascii
+import csv
 
 def netcat(hostname, port, content, flag):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -52,6 +53,7 @@ def src_test():
     http_port = 80
     protocol = "TCP"
     method = "ip"
+    file_to_send = 'MainTerminal_PhaseCount.csv'
     # random.seed(int(time.time()))
     #imsi = ranodm.randint( int(pow(1,pow(10,15))) , int(pow(9.0,pow(10,15))) )
     #imsi = random.randint(100000000000000,999999999999999)
@@ -125,42 +127,42 @@ def src_test():
     i = 1
     j = 0
     disconnection = False
-    while j < 2:
-        msg = str(i) + ') HI FROM THE CLIENT! :D'
-        # to clear the sniffer before sending a message
-        while fake_socket.q.qsize() > 0:
-            fake_socket.q.get(block=True)
-        print("sending a message to the server...")
-        time.sleep(0.1)
-        fake_socket.send_data(msg)
+    with open(file_to_send, 'r') as csvfile:
+        while True:
 
-        print("waiting the answer")
-        # waiting for an answer to the previous message
-        out = False
-        while(not out and j < 2):
-            try:
-                packet = fake_socket.q.get(block=True, timeout=fake_socket._timeout)
+            csv_reader = csv.reader(csvfile)
+            for row in csv_reader:
+                row_data = ','.join(row)
 
-                if packet[TCP].flags & 0x01 != 0x01:
-                    # the packet contains something and it is a PA
-                    if packet[TCP].flags == 'PA':
-                        print(packet.getlayer(Raw).load)
-                        fake_socket._ack(packet)
-                        out = True
-                else:
-                    fake_socket._ack_rclose()
-                    disconnection = True
-            except Empty:
-                print('[TEST] Queue timeout')
-                j = j + 1
+                # to clear the sniffer before sending a message
+                while fake_socket.q.qsize() > 0:
+                    fake_socket.q.get(block=True)
+                print("sending a row to the server...")
+                time.sleep(5)
+                fake_socket.send_data(row_data)
 
-        i = i + 1
-    if j >= 2:
-        print("The server is not answering...")
-    try:
-        sniffer._stop()
-    except Exception as e:
-        print(e)
+                print("waiting the acknowledgement")
+                # waiting for an answer to the previous message
+                out = False
+                while(not out):
+                    try:
+                        packet = fake_socket.q.get(block=True, timeout=fake_socket._timeout)
+
+                        if packet[TCP].flags & 0x01 != 0x01:
+                            # the packet contains something and it is a PA
+                            if packet[TCP].flags == 'PA':
+                                #print(packet.getlayer(Raw).load)
+                                fake_socket._ack(packet)
+                                out = True
+                        else:
+                            fake_socket._ack_rclose()
+                            disconnection = True
+                    except Empty:
+                        print('[TEST] Queue timeout')
+        try:
+            sniffer._stop()
+        except Exception as e:
+            print(e)
 
     if not disconnection:
         fake_socket.close()
