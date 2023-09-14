@@ -3,6 +3,7 @@ import time
 from os.path import exists
 import pandas as pd
 import os
+import nilm_ml
 
 # global variables section
 controller_ip = "192.168.2.1"
@@ -20,6 +21,9 @@ def dst_test():
         # if not, create that file, in this way I can guarantee the the existence
         # of that file avoiding any problem
         os.mknod(output_filename)
+
+    # these are the possible states of the system
+    set_of_possible_system_states = nilm_ml.calculate_possible_system_states()
 
     print("OPEN AN ECHO SOCKET TCP ON PORT " + str(http_port))
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -67,14 +71,26 @@ def dst_test():
                     # splitting the "SensorDateTime,2017-10-01T00:10:13.623+02" in position 0
                     csv_time = row[0].split(',')
                     csv_time = csv_time[1]
+                    # retrieving only the hours:minutes:seconds:milliseconds
+                    csv_time = csv_time[11:-3]
                     # splitting the "P_kW,6.569999933242798" in position 1
                     csv_power = row[1].split(',')
                     csv_power = csv_power[1]
                     
+                    # selecting the optimal state of the system
+                    current_system_state = nilm_ml.get_state(set_of_possible_system_states, csv_power)
+
                     # creating a list with the timestamp and the total power consumption
                     my_list = []
                     my_list.append(csv_time)
                     my_list.append(csv_power)
+
+                    # popping the total power nearest to the current one
+                    current_system_state.pop(0)
+
+                    # appending the power of each electrical device in the system
+                    for j in current_system_state:
+                        my_list.append(str(j[1]))
 
                     # appending it in a list in order to have a list of list which is representing
                     # an element on the external list
@@ -83,7 +99,7 @@ def dst_test():
                     
                     # creating the data frame with pandas
                     # giving the name for the columns
-                    columns = ['SensorDateTime', 'P_kW']
+                    columns = ['Sensor Date Time', 'Total Power', 'Chip Press', 'Chip Saw', 'High Temperature Oven', 'Soldering Oven', 'Washing Machine']
                     df = pd.DataFrame(final_list, columns=columns)
 
                     # reading the csv
