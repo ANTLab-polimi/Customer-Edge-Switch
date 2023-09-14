@@ -1,3 +1,26 @@
+''' 
+    Don't forget to block TCP/RST packet that was send
+    by the linux kernel because no source port was bound.
+        
+        iptables -A OUTPUT -p tcp --sport 54321 --tcp-flags RST RST -j DROP
+
+    -A add a rule at the end of the chain chosen
+        OUTPUT is the chain chosen, because is from the kernel to the external destination
+    -p tcp stands for the tcp protocol
+    --sport is the source port
+    --dport is the destination port
+    --tcp-flags is the kind of flag
+    -j ACCEPT/DROP -> take the specified action
+
+    To delete a particular line in iptables:
+
+        to prompt onto the terminal all the table with the line numbers
+        > sudo iptables -L --line-numbers 
+        > sudo iptables -D OUTPUT <Number>
+
+    Source port is, for now, fixed to 54321 to facilitate wireshark/tcpdump filtering.
+'''
+
 from threading import Thread
 from queue import *
 from scapy.all import *
@@ -6,6 +29,7 @@ from scapy.packet import *
 from scapy.sendrecv import *
 from scapy.arch.linux import *
 
+# global variable
 m_iface = "enp3s0"
 m_finished = False
 m_dst = "192.168.2.2"
@@ -45,7 +69,7 @@ class TCP_Session:
             self.iface = iface
         self.connected = False
         self._ackThread = None
-        self._timeout = 10
+        self._timeout = 5
         self.q = Queue()
         self.pre_ack = 0
         self.pre_seq = 0
@@ -91,6 +115,7 @@ class TCP_Session:
         global m_dst
         global m_protocol
         
+        # the sniffer will have a filter in order to receive only the packets from the server
         while (not m_finished):
             sniff(iface = m_iface, filter= str(m_protocol) + " && src host " + str(m_dst) + " && src port " + str(self.dport), prn = lambda x : self.q.put(x))
     
@@ -99,13 +124,16 @@ class TCP_Session:
     def threaded_sniff(self):
 
         sniffer = Thread(target = self.threaded_sniff_target, args = ())
+        # daemon because it will last until the main thread has to shut down
         sniffer.daemon = True
         sniffer.start()
 
+        # in this way, it could be possible controlling it
         return sniffer
     
     # here the TCP three-way handshake is handled 
     def connect(self, hash_hex):
+
         # extracting a random number for the sequence number of the packet
         self.seq = random.randrange(0, (2**32)-1)
 
@@ -129,7 +157,7 @@ class TCP_Session:
                     else:
                         print('[CONNECT] Acknowledgement number error')
                 else:
-                    print('No SYN/ACK flag')
+                    print('[CONNECT] No SYN/ACK flag')
             except Empty:
                 pass 
 
@@ -151,7 +179,7 @@ class TCP_Session:
         #print('SEQ number after: ' + str(self.seq))
         return psh
 
-    #to close the connection with the server
+    # to close the connection with the server
     def close(self):
         self.connected = False
 
@@ -181,18 +209,21 @@ class TCP_Session:
 
         print('Disconnected')
 
+    # to handle the sending of some data
     def send_data(self, data):
 
-        #TODO encoding with JSON format the data to send
-        # for the moment, we will send the test message like a padding header (Raw)
-        #print('data lenght: ' + str(len(data)))
-        payload = Raw(data)
-        #print('payload lenght: ' + str(len(payload)))
+        # The payload is created as a padding header (Raw)
+        payload = Raw(load=data)
+
+        # then it is given to the build function to create the packet to be sent
         pkt = self.build(payload)
+        
+        print("sending a row to the server...")
         send(pkt, iface=self.iface)
 
         # waiting for the ack
         out = False
+        j = 0
         while(not out):
             try:
                 ack = self.q.get(block=True, timeout=self._timeout)
@@ -200,13 +231,20 @@ class TCP_Session:
                 if ack[TCP].flags & 0x10 == 0x10:
                     if ack[TCP].ack == self.seq:
                        out = True
+                       print('[SEND_DATA] Ok Acknowledgement')
                     else:
                         print('[SEND_DATA] Acknowledgement number error')
-                        print('ACK number: ' + str(ack[TCP].ack) )
-                        print('SEQ number: ' + str(self.seq))
-                        print(ack.summary())
+                        #print('ACK number: ' + str(ack[TCP].ack) )
+                        #print('SEQ number: ' + str(self.seq))
+                        #print(ack.summary())
                 else:
                     print('No ACK flag')
             except Empty:
                 print('[SEND_DATA] timeout queue')
-                pass
+                j = j + 1
+
+                # after 5 packet missing in the queue,
+                # maybe the server could have missed a packet
+                # so, it will resend it mantaining everything as before (every class variables)
+                if j % 5 == 0:
+                    send(pkt, iface=self.iface)
