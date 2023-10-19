@@ -99,9 +99,9 @@ def dst_test():
                     
                     # creating the data frame with pandas
                     # giving the name for the columns
-                    columns = ['Sensor Date Time', 'Total Power', 'Chip Press', 'Chip Saw', 'High Temperature Oven', 'Soldering Oven', 'Washing Machine']
+                    columns = ['Sensor Date Time', 'kW', 'Chip Press', 'Chip Saw', 'High Temperature Oven', 'Soldering Oven', 'Washing Machine']
                     df = pd.DataFrame(final_list, columns=columns)
-
+                    print(df)
                     # reading the csv
                     current_df = pd.read_csv(output_filename)
 

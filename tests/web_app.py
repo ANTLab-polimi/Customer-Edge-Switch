@@ -7,9 +7,6 @@ from dash import html
 
 excel_file_name = './mains_csv/MainTerminal_PhaseCount.csv'
 
-# Reading the CSV file
-df = pd.read_csv(excel_file_name)
-
 # Creating a Dash application
 app = dash.Dash(__name__)
 
@@ -31,11 +28,13 @@ app.layout = html.Div([
     Input('interval-component', 'n_intervals')
 )
 
-# the function that will be launched everytime the server will refreshing
+# the function that will be launched everytime the server will refresh
 def update_graph(n):
 
-    # Updating the plot with the new information inside the CSV
+    # reading the updated CSV file in order to plot the new data transmitted
     updated_df = pd.read_csv(excel_file_name)
+    # filtering the last 20 raws which is about the last minute
+    updated_df = updated_df.tail(20)
 
     # the first figure to be plotted
     fig = px.line(
@@ -46,13 +45,14 @@ def update_graph(n):
     )
 
     fig.update_layout(
-    	#yaxis_range=[0,10]
+    	# starting from zero to the current power
     	yaxis=dict(rangemode = 'tozero')
     )
 
-    # the second figure to be plotted
+    # the columns to be read from the CSV
     Y = ['Chip Press', 'Chip Saw', 'High Temperature Oven', 'Soldering Oven', 'Washing Machine']
     
+    # the second figure to be plotted
     fig2 = px.line(
     	updated_df,
     	x='Sensor Date Time',
@@ -75,4 +75,4 @@ def update_graph(n):
     return fig, fig2
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
