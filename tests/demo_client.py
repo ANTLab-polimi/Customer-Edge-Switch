@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 """
-    
+    Script which simulates a NILM (Non Intrusive Load Monitoring) sensor of a industrial environment
+    capturing the data about the power consumed by the selected appliances
 """
 
 import socket
@@ -10,7 +11,7 @@ import pandas as pd
 
 HOST = "192.168.2.2"  # The server's hostname or IP address
 PORT = 80  # The port used by the server
-# the file with the NILM sensors' data to be sent
+# The file with the NILM sensors' data to be sent
 file_to_send = "../nilmtk_application/hipe/hipe_cleaned_v1.0.1_geq_2017-10-01_lt_2018-01-01/MainTerminal_PhaseCount_3_geq_2017-10-01_lt_2018-01-01.csv"
 
 
@@ -25,7 +26,7 @@ def start_demo():
         df = pd.read_csv(file_to_send)
 
         # reading the wanted columns for the test: the timestamp and the total power
-        # used in that moment 
+        # captured in that moment 
         my_df = df.loc[:,["SensorDateTime", "P_kW"]]
         
         # sending one by one row at time to the server
