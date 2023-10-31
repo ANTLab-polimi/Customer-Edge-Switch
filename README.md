@@ -1,13 +1,68 @@
 # Customer Edge Switch (CES)
 
-Development of CES component, that is a programmable switch managed by a specific controller which checks policies on a policy server. 
+Development of CES component, that is a programmable switch managed by a specific controller which checks policies on a policy server.
 
-This way it is possible to perform authentication and authorization processes, in order to open verified connections, implementing a policy-based protocol.
+With this element it is possible to perform authentication and authorization processes, in order to open verified connections, implementing a policy-based protocol.
+
+To test this building block, a Non Intrusive Load Monitoring application between the client (5G machine) and the server (MEC machine) was designed as example of a possible real application.
+
+This project in association with [CHIMA](https://github.com/ANTLab-polimi/CHIMA) is part of a larger project called [AI-SPRINT](https://www.ai-sprint-project.eu/).
 
 
 ## Installation
 
-git clone this repository:
+
+### on physical machines
+
+We have tested this environment on three physical machines.
+
+The first one stands for the 5G network, the second contains the controller and the P4 switch and the last one is conceived as a MEC node where the computation takes hold.
+
+All the machine had these characteristics:
+
+* CPU: Intel Core i5-8400@2.80GHz with 6 cores
+* RAM: 32 GB
+* OS: Ubuntu 22.04.2 LTS
+
+and they were collocated inside the same LAN.
+
+Clone this repository in every machine:
+```
+git clone https://github.com/ANTLab-polimi/Customer-Edge-Switch.git
+```
+
+In the machine where will be simulated the 5G network (the first one) you need to install scapy and pandas python libraries:
+```
+sudo pip3 install scapy pandas
+```
+
+In the central machine it is required to install inotify, scapy and the p4runtime-shell libraries:
+```
+sudo pip3 install p4runtime-shell inotify scapy
+```
+
+Also in the third one (MEC node) there is the need of installing additional python libraries:
+```
+sudo pip3 install pandas dash plotly
+```
+
+Now the installation part is completed.
+
+
+### on Virtual Machines
+
+You can also install all environment in just one machine by leveraging the VMs.
+We have used Vagrant as hypervisor for the VMs.
+
+So, before going ahead, you need to install Vagrant on your pc following the instruction on the [Vagrant web page](https://developer.hashicorp.com/vagrant/downloads).
+
+The three machines are:
+
+free5gc vm -> the hydrogen vm (first)
+BMv2 vm (second)
+MEC vm -> the helium vm (third)
+
+Clone this repository in your machine:
 ```
 git clone https://github.com/ANTLab-polimi/Customer-Edge-Switch.git
 ```
@@ -57,25 +112,31 @@ Verify the DNS resolution:
 ping google.com -I eth1
 ```
 
-Install p4runtime-shell, inotify and scapy modules inside BMV2 vm:
+Install p4runtime-shell, inotify and scapy modules inside the second (BMv2) vm:
 ```
 sudo pip3 install p4runtime-shell inotify scapy
 ```
 
-Install pip3 and scapy module inside dst (helium) vm:
+Install pip3 and various module inside the third (helium) vm:
 ```
 sudo apt-get install -y python3-pip --fix-missing
-sudo pip3 install scapy
+sudo pip3 install pandas dash plotly
 ```
 
-Install scapy module inside src (hydrogen) vm:
+Install scapy and pandas module inside the first (hydrogen) vm:
 ```
-sudo pip3 install scapy
+sudo pip3 install scapy pandas
 ```
 
-There is no need to clone this repository in each vm, because thanks to the shared folder of Vagrant all the vm can see the updates done on the repository
+There is no need to clone this repository in each vm, because all the vm can see the updates done on the repository thanks to the shared folder option of Vagrant.
 
 ## Test authentication and authorization
+
+### on physical machines
+
+
+
+### on Virtual Machines
 
 First, it is necessary to set the IP addresses and the default gateway of free5gc (hydrogen) and dst (helium) vms to the specific BMV2 interfaces (release vm) belonging to the private networks.
 
@@ -157,8 +218,6 @@ Just rerun ansible playbook script inside hydrogen vm.
 ```
 sudo ansible-playbook -K Demo2Exp1.yml  -e  "internet_network_interface=<< internet network interface name>>"
 ```
-
-
 After some recreations of the environment, apt cache can give some problems; in those case, it it possible to 
 ```
 sudo apt-get clean
@@ -174,5 +233,7 @@ update_cache: no
 
 
 ## External links
-* Vagrant5GCluster: [link](https://github.com/EmanueleGallone/Vagrant5GCluster.git)
-* Free5gc vm setup scripts: [link](https://github.com/LABORA-INF-UFG/NetSoft2020-Tutorial4-Demo2-Exp1)
+* Vagrant5GCluster: [GitHub repository](https://github.com/EmanueleGallone/Vagrant5GCluster.git)
+* Free5gc vm setup scripts: [GitHub repository](https://github.com/LABORA-INF-UFG/NetSoft2020-Tutorial4-Demo2-Exp1)
+* NILMTK: Non-Intrusive Load Monitoring Toolkit: [GitHub repository](https://github.com/nilmtk/nilmtk)
+* SCONE container web page: [web page of SCONE for Python applications](https://sconedocs.github.io/Python/)
