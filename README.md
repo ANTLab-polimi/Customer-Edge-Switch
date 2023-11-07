@@ -40,6 +40,8 @@ In the central machine it is required to install inotify, scapy and the p4runtim
 ```
 sudo pip3 install p4runtime-shell inotify scapy
 ```
+Moreover, you need to install the BMv2 switch.
+The official repository on GitHub about the BMv2 switch is [this](https://github.com/p4lang/behavioral-model) and the repository of the P4 compiler is [here](https://github.com/p4lang/p4c).
 
 Also in the third one (MEC node) there is the need of installing additional python libraries:
 ```
@@ -132,9 +134,48 @@ There is no need to clone this repository in each vm, because all the vm can see
 
 ## Test authentication and authorization
 
+The Discovery phase of the protocol is out-of-band and it will not be considered in this test. So, we have considered that the user's device and the policy server have already known the service name, service IP address and the service port.
+
 ### on physical machines
 
+In the central machine we need to activate the P4 switch and the controller.
+The command line for the switch is:
 
+```
+sudo simple_switch_grpc --log-console --no-p4 --device-id 1 -i 1@<your_first_interface> -i 2@<your_second_interface> -- --grpc-server-addr 0.0.0.0:50051 --cpu-port 255
+```
+
+We cannot start the controller without sconify it because it could run in a different environment (thanks to the SDN paradigm).
+Therefore, the command line to sconify the controller is:
+```
+sudo docker run --rm -it $MOUNT_SGXDEVICE -v "$PWD":/usr/src/myapp -w /usr/src/myapp -e SCONE_HEAP=256M -e SCONE_MODE=sim -e SCONE_ALLOW_DLOPEN=2 -e SCONE_ALPINE=1 -e SCONE_VERSION=1 <your_version_of_scone__docker_image> sh
+```
+
+Where the docker image of scone has to be retrieved from the [SCONE web site](https://sconedocs.github.io/). In particular, our version was obtained from the docker image specialized for the Python language in an [old repository](https://github.com/scontain/hello-world-python) with the addition of some libraries but an alternative could be found also in the SCONE web site for the [Python language](https://sconedocs.github.io/Python/).
+
+The addition of the libraries involved these steps:
+```
+apk update
+apk upgrade
+
+# this to install the C compiler due to SCONE is using cython to build a python program
+apk add make automake gcc g++ subversion python3-dev
+
+# these to allow the controller and the server to run inside the container
+python3 -m pip install --upgrade setuptools
+pip3 install --no-cache-dir --force-reinstall -Iv grpcio
+pip3 install p4runtime-shell
+pip3 install scapy
+pip3 install pyyaml
+pip3 install inotify
+pip3 install pandas
+pip3 install dash
+pip3 install plotly
+```
+
+The controller requires to know all the IP-MAC address pairs. Therefore, we need to simulate a IPv6 Router Solicitation with two pings from the first and the third machines.
+
+After that, we can start the server and the data visualization script in the third machine.
 
 ### on Virtual Machines
 
