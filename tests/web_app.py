@@ -1,3 +1,12 @@
+#!/usr/bin/python3
+# the official website documentation of dash and plotly: https://dash.plotly.com/
+
+'''
+    This is the web app which read the results stored in the csv file
+    and plot them in a graph showing how it is the possible current state of
+    the appliances of the industrial environment and its total power
+'''
+
 import pandas as pd
 import plotly.express as px
 import dash
@@ -10,7 +19,7 @@ excel_file_name = './mains_csv/MainTerminal_PhaseCount.csv'
 # Creating a Dash application
 app = dash.Dash(__name__)
 
-# with two graphs inside an html Div
+# with two graphs inside an html Div and a source input which refresh every 10 seconds
 app.layout = html.Div([
     dcc.Graph(id='live-graph'),
     dcc.Graph(id='live-graph1'),
@@ -34,6 +43,7 @@ def update_graph(n):
     # reading the updated CSV file in order to plot the new data transmitted
     updated_df = pd.read_csv(excel_file_name)
     # filtering the last 20 raws which is about the last minute
+    # in this way we drop the compression of the data for a more readable plot
     updated_df = updated_df.tail(20)
 
     # the first figure to be plotted
@@ -49,7 +59,7 @@ def update_graph(n):
     	yaxis=dict(rangemode = 'tozero')
     )
 
-    # the columns to be read from the CSV
+    # the columns to be read from the CSV as appliances
     Y = ['Chip Press', 'Chip Saw', 'High Temperature Oven', 'Soldering Oven', 'Washing Machine']
     
     # the second figure to be plotted
