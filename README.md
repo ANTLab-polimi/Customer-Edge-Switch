@@ -20,7 +20,7 @@ The first one stands for the 5G network, the second contains the controller and 
 
 All the machine had these characteristics:
 
-* CPU: Intel Core i5-8400@2.80GHz with 6 cores
+* CPU: Intel Core i5-8400 at 2.80GHz with 6 cores
 * RAM: 32 GB
 * OS: Ubuntu 22.04.2 LTS
 
@@ -46,6 +46,50 @@ The official repository on GitHub about the BMv2 switch is [this](https://github
 Also in the third one (MEC node) there is the need of installing additional python libraries:
 ```
 sudo pip3 install pandas dash plotly
+```
+
+As last step, you need to install the 5G emulator:
+
+1.  Clone the [repository of free5Gc](https://github.com/LABORA-INF-UFG/NetSoft2020-Tutorial4-Demo2-Exp1)
+2.  Install Ansible:
+```
+sudo apt -y install ansible
+```
+3.  Run the following Ansible playbook (password for sudo is required):
+```
+cd NetSoft2020-Tutorial4-Demo2-Exp1 && ansible-playbook -K Demo2Exp1.yml  -e  "internet_network_interface=<< internet network interface name>>"
+```
+NB: you retrieve your *internet network interface* name with the command `ifconfig`.
+
+
+Now, verify that free5gc containers are running on the first machine:
+```
+sudo docker ps
+```
+
+If its are not running, you need to restart all the containers with the follow command and check again if its are up now:
+```
+sudo docker restart ue enb webui pcrf hss smf upf amf mongodb-svc
+```
+
+Connect to the UE container:
+```
+sudo docker exec -it ue bash
+```
+
+List all the UEs:
+```
+ifconfig
+```
+
+Verify the connection to internet:
+```
+ping 8.8.8.8 -I <your-internet-interface>
+```
+
+Verify the DNS resolution:
+```
+ping google.com -I <your-internet-interface>
 ```
 
 Now the installation part is completed.
@@ -151,31 +195,11 @@ Therefore, the command line to sconify the controller is:
 sudo docker run --rm -it $MOUNT_SGXDEVICE -v "$PWD":/usr/src/myapp -w /usr/src/myapp -e SCONE_HEAP=256M -e SCONE_MODE=sim -e SCONE_ALLOW_DLOPEN=2 -e SCONE_ALPINE=1 -e SCONE_VERSION=1 <your_version_of_scone__docker_image> sh
 ```
 
-Where the docker image of scone has to be retrieved from the [SCONE web site](https://sconedocs.github.io/). In particular, our version was obtained from the docker image specialized for the Python language in an [old repository](https://github.com/scontain/hello-world-python) with the addition of some libraries but an alternative could be found also in the SCONE web site for the [Python language](https://sconedocs.github.io/Python/).
-
-The addition of the libraries involved these steps:
-```
-apk update
-apk upgrade
-
-# this to install the C compiler due to SCONE is using cython to build a python program
-apk add make automake gcc g++ subversion python3-dev
-
-# these to allow the controller and the server to run inside the container
-python3 -m pip install --upgrade setuptools
-pip3 install --no-cache-dir --force-reinstall -Iv grpcio
-pip3 install p4runtime-shell
-pip3 install scapy
-pip3 install pyyaml
-pip3 install inotify
-pip3 install pandas
-pip3 install dash
-pip3 install plotly
-```
-
 The controller requires to know all the IP-MAC address pairs. Therefore, we need to simulate a IPv6 Router Solicitation with two pings from the first and the third machines.
 
 After that, we can start the server and the data visualization script in the third machine.
+
+**TO BE FINISHED**
 
 ### on Virtual Machines
 
@@ -218,6 +242,8 @@ cd Customer-Edge-Switch/orchestrator && sudo python3 orchestrator.py
 It will wait for incoming packets.
 Now we will start the protocol comunication!
 
+**TO BE FINISHED**
+
 SSH to the free5gc vm:
 ```
 vagrant ssh hydrogen
@@ -251,6 +277,31 @@ To check if everything is ok, authen_author_src_test.py script sends also a test
 To generate it, inside UE container run:
 ```
 dd if=/dev/zero of=test.txt count=1024 bs=1024
+```
+
+## How to retrieve the SCONE image to sconify the controller and the server
+
+Where the docker image of scone has to be retrieved from the [SCONE web site](https://sconedocs.github.io/). In particular, our version was obtained from the docker image specialized for the Python language in an [old repository](https://github.com/scontain/hello-world-python) with the addition of some libraries.
+An alternative way could be found also in the SCONE web site for the [Python language](https://sconedocs.github.io/Python/).
+
+The addition of the libraries involved these steps:
+```
+apk update
+apk upgrade
+
+# to install the C compiler due to SCONE is using cython to build a python program
+apk add make automake gcc g++ subversion python3-dev
+
+# to allow the controller and the server to run inside the container
+python3 -m pip install --upgrade setuptools
+pip3 install --no-cache-dir --force-reinstall -Iv grpcio
+pip3 install p4runtime-shell
+pip3 install scapy
+pip3 install pyyaml
+pip3 install inotify
+pip3 install pandas
+pip3 install dash
+pip3 install plotly
 ```
 
 ## Warning
