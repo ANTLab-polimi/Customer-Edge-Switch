@@ -5,7 +5,8 @@
 """
     This uses scapy to modify packets going through your machine in order to inject a NSH header
     to allow the TCP connection to be accepted by our switch in the outside MEC network.
-    Based on nfqueue to block packets in the kernel and pass them to scapy for validation
+    Based on nfqueue to block packets in the kernel and pass them to scapy for validation.
+    (it is not tracking the entire state of the connection, just the three-way handshake TCP connection)
 """
 
 from netfilterqueue import NetfilterQueue
@@ -15,6 +16,7 @@ from json import JSONEncoder
 import hmac, hashlib, base64, random
 import binascii
 import os
+import copy
 
 # this allows us to group the multiple variables to create a HMAC
 class Auth():
@@ -39,7 +41,7 @@ list_of_client = []
 
 # iptables parameters
 chain = "OUTPUT"
-#interface = "enp3s0"
+iface = "enp3s0"
 ip_dest = "192.168.2.2"
 dport = "80"
 protocol = "TCP"
@@ -76,17 +78,25 @@ def my_callback(payload):
     data = payload.get_payload()
     pkt = IP(data)
     print("Got a packet ! source ip : " + str(pkt.src))
+    
+    """
+        The flags of the TCP connection
+
+        FIN = 0x01  00000001
+        SYN = 0x02  00000010
+        RST = 0x04  00000100
+        PSH = 0x08  00001000
+        ACK = 0x10  00010000
+        URG = 0x20  00100000
+        ECE = 0x40  01000000
+        CWR = 0x80  10000000
+    """
 
     # if the packet traffic is that one we are looking for, we are required to inject the header with the HMAC hash
-    if pkt.dst == ip_dest and pkt.dport == 80 and not isPresent(pkt.src, pkt.sport):
+    if pkt.dst == ip_dest and pkt.dport == 80 and (pkt[TCP].flags & 0x2 == 0x2) and not isPresent(pkt.src, pkt.sport):
         
         print("TCP connection to our service detected!")
         print("Here we need to insert the NSH header and forward the packet...")
-        
-        # tracking the new client avoiding to insert the NSH in the next packet immediatly
-        new_client = [pkt.src,pkt.sport]
-        list_of_client.append(new_client)
-        print(list_of_client)
 
         # reading the master_key retrieved by the previous key exchange phase
         print("Reading the master key")
@@ -108,21 +118,40 @@ def my_callback(payload):
         # shake_128 hash function to create a HMAC exploiting the collision resistance propriety
         hash_hex = hashlib.shake_128(str(count).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
         my_hash = binascii.unhexlify(hash_hex)
+        #print(my_hash)
 
         # creating the header including the shake_128 hash
-        new_pkt = NSH(mdtype=1, nextproto=1, context_header=my_hash)/pkt
+        # using the deepcopy in order to do not have in common anything with the original packet
+        # on which nfqueue can act
+        my_pkt = copy.deepcopy(pkt)
+        new_pkt = NSH(mdtype=1, nextproto=1, context_header=my_hash)/my_pkt
 
-        # https://stackoverflow.com/questions/42765084/python-script-used-to-modify-tcp-packets-using-nfqueue-and-scapy
-        # this is better and more recent https://www.codetd.com/en/article/12988510
-        # modifying the payload of the packet arrived and accepting it
-        payload.set_payload(bytes(new_pkt))
-        payload.accept()
-
-        # another possible solution is a work around exploiting the sendp() scapy function
-        # you need to drop the packet with a payload.drop()
-        # then you are required to copy the previous payload, modify it and then send it
+        # https://www.codetd.com/en/article/12988510 + https://pypi.org/project/NetfilterQueue/#limitations
+        # nfqueue is cutting every modification under the third layer including our manipulation under the IP layer
+        # so we need to drop the packet retrieved from the iptables
+        payload.drop()
+        
+        mac_address_destination = "ff:ff:ff:ff:ff:ff" # broadcast
+        #mac_address_destination = "50:3e:aa:11:5b:ce" # this is the specific MAC address of the final machine
+        # but it should not be set because in a real context you should not know the server MAC address...
+        
+        # forging the packet to be sent
+        pkt_to_send = Ether(dst=mac_address_destination)/new_pkt
+        #print(pkt_to_send)
+        
+        # We are sending the packet with the sendp built-in function of scapy forcing the packet out through
+        # the interface that we want 
+        scapy.sendrecv.sendp(pkt_to_send, iface=iface)
+        
 
     else:
+        # SYN ACK packet of the TCP connection
+        if pkt.dst == ip_dest and pkt.dport == 80 and (pkt[TCP].flags & 0x12 == 0x12):
+            # tracking the new client avoiding to insert the NSH in the next packet immediatly
+            new_client = [pkt.src,pkt.sport]
+            list_of_client.append(new_client)
+            print(list_of_client)
+        
         # accept the packets in any case
         payload.accept()
 

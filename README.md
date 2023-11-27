@@ -92,8 +92,18 @@ Verify the DNS resolution:
 ping google.com -I <your-internet-interface>
 ```
 
-Now the installation part is completed.
+Now you need to download the HIPE dataset inside the UE container checking [this page of the NILM repository on GitHub](https://github.com/nilmtk/nilmtk/tree/master/nilmtk/dataset_converters/hipe). You can download the [1 week version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-23_lt_2017-10-30.zip) or the [1 month version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-01_lt_2018-01-01.zip), it is not relevant for the test.
 
+Then you need to copy also the `demo_client.py` inside the UE container from the host with this command:
+```
+sudo docker cp ~/Customer-Edge-Switch/tests/demo_client.py <UE_container_id>:/demo_client.py
+``` 
+and modify the 15th line of code:
+```
+file_to_send = "path/to/the/name_of_file_downloaded_before.csv"
+```
+
+At this point the installation part is completed!
 
 ### on Virtual Machines
 
@@ -176,6 +186,19 @@ sudo pip3 install scapy pandas
 
 There is no need to clone this repository in each vm, because all the vm can see the updates done on the repository thanks to the shared folder option of Vagrant.
 
+Now you need to download the HIPE dataset inside the UE container checking [this page of the NILM repository on GitHub](https://github.com/nilmtk/nilmtk/tree/master/nilmtk/dataset_converters/hipe). You can download the [1 week version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-23_lt_2017-10-30.zip) or the [1 month version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-01_lt_2018-01-01.zip), it is not relevant for the test.
+
+Then you need to copy also the `demo_client.py` inside the UE container from the first VM with this command:
+```
+sudo docker cp ~/Customer-Edge-Switch/tests/demo_client.py <UE_container_id>:/demo_client.py
+``` 
+and modify the 15th line of code:
+```
+file_to_send = "path/to/the/name_of_file_downloaded_before.csv"
+```
+
+At this point the installation part is completed!
+
 ## Test authentication and authorization
 
 The Discovery phase of the protocol is out-of-band and it will not be considered in this test. So, we have considered that the user's device and the policy server have already known the service name, service IP address and the service port.
@@ -195,9 +218,51 @@ Therefore, the command line to sconify the controller is:
 sudo docker run --rm -it $MOUNT_SGXDEVICE -v "$PWD":/usr/src/myapp -w /usr/src/myapp -e SCONE_HEAP=256M -e SCONE_MODE=sim -e SCONE_ALLOW_DLOPEN=2 -e SCONE_ALPINE=1 -e SCONE_VERSION=1 <your_version_of_scone__docker_image> sh
 ```
 
-The controller requires to know all the IP-MAC address pairs. Therefore, we need to simulate a IPv6 Router Solicitation with two pings from the first and the third machines.
+The controller requires to know all the IP-MAC address pairs. Therefore, we need to simulate a IPv6 Router Solicitation with two pings: one from the first machine and the second ping from the third one.
 
 After that, we can start the server and the data visualization script in the third machine.
+
+
+Also inside the third machine we need to sconify the server application for the same reason of the central machine but here we are required to expose the port number 80, allowing the access to the service from the outside:
+```
+sudo docker run --rm -it $MOUNT_SGXDEVICE -v "$PWD":/usr/src/myapp -w /usr/src/myapp -e SCONE_HEAP=256M -e SCONE_MODE=sim -e SCONE_ALLOW_DLOPEN=2 -e SCONE_ALPINE=1 -e SCONE_VERSION=1 -p 80:80 <your_version_of_scone__docker_image> sh
+```
+
+In order to visualize the result, we raise up also a server as a front-end part:
+```
+python3 web_app.py
+```
+then open a browser page and text:
+```
+http://localhost:8050
+```
+
+We are able to see the result written by the application inside the scone container thanks to the permission of the container (for sake of simplicity we have not encrypted the excel file, but in a real context it should be encrypted applying a key exchanged previously between the container itself and the host).
+
+Now we are required to start the key exchange between the client and the server, so in the client machine:
+```
+sudo python3 diffie_hellman_ue.py
+```
+
+At this moment, we need to activate the nfqueue script as well as to execute the UE container in the client:
+```
+sudo python3 nfqueue_test.py
+```
+
+now the container:
+```
+sudo docker exec -it ue bash
+```
+and inside the container:
+```
+python3 demo_client.py
+```
+
+From here, the authorization protcol is executed and the client is connected to : 
+
+* The UE is sending the first packet of the three-way handshake TCP connection
+* The connection filter is injecting the authorization token inside the packet sending it
+
 
 **TO BE FINISHED**
 
@@ -323,9 +388,26 @@ in
 update_cache: no
 ```
 
+## General problems with Docker
+
+It could happen that it will warn you with this error **Docker: Error Response From Daemon: cgroups: cgroup mountpoint does not exist: unknown**.
+The solution is mounting the cgroup and then run your docker command:
+```
+sudo mkdir /sys/fs/cgroup/systemd
+sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
+<<your docker run>>
+```
+
+Another problem could be correlated to the apt-key deprecation warning, in particular the error is **Key is stored in legacy trusted.gpg keyring**. There is a workaround for this:
+```
+sudo cp /etc/apt/trusted.gpg /etc/apt/trusted.gpg.d
+sudo apt update
+```
+In this way you are copying the previous file in a directory resolving the conflict.
 
 ## External links
 * Vagrant5GCluster: [GitHub repository](https://github.com/EmanueleGallone/Vagrant5GCluster.git)
 * Free5gc vm setup scripts: [GitHub repository](https://github.com/LABORA-INF-UFG/NetSoft2020-Tutorial4-Demo2-Exp1)
 * NILMTK: Non-Intrusive Load Monitoring Toolkit: [GitHub repository](https://github.com/nilmtk/nilmtk)
 * SCONE container web page: [web page of SCONE for Python applications](https://sconedocs.github.io/Python/)
+* HIPE: An Energy-Status-Data Set from Industrial Production: [paper on the HIPE dataset](https://dl.acm.org/doi/10.1145/3208903.3210278)
