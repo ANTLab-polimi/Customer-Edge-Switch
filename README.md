@@ -6,7 +6,7 @@ With this element it is possible to perform authentication and authorization pro
 
 To test this building block, a Non Intrusive Load Monitoring application between the client (5G machine) and the server (MEC machine) was designed as example of a possible real application.
 
-This project in association with [CHIMA](https://github.com/ANTLab-polimi/CHIMA) is part of a larger project called [AI-SPRINT](https://www.ai-sprint-project.eu/).
+This work in association with [CHIMA](https://github.com/ANTLab-polimi/CHIMA) is part of a larger project called [AI-SPRINT](https://www.ai-sprint-project.eu/).
 
 
 ## Installation
@@ -92,7 +92,7 @@ Verify the DNS resolution:
 ping google.com -I <your-internet-interface>
 ```
 
-Now you need to download the HIPE dataset inside the UE container checking [this page of the NILM repository on GitHub](https://github.com/nilmtk/nilmtk/tree/master/nilmtk/dataset_converters/hipe). You can download the [1 week version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-23_lt_2017-10-30.zip) or the [1 month version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-01_lt_2018-01-01.zip), it is not relevant for the test.
+Now you need to download the HIPE dataset inside the UE container. So, check [this page of the NILM repository on GitHub](https://github.com/nilmtk/nilmtk/tree/master/nilmtk/dataset_converters/hipe). You can download the [1 week version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-23_lt_2017-10-30.zip) or the [1 month version](https://www.ipd.kit.edu/mitarbeiter/hipe/hipe_cleaned_v1.0.1_geq_2017-10-01_lt_2018-01-01.zip), it is not relevant for the test.
 
 Then you need to copy also the `demo_client.py` inside the UE container from the host with this command:
 ```
@@ -222,7 +222,6 @@ The controller requires to know all the IP-MAC address pairs. Therefore, we need
 
 After that, we can start the server and the data visualization script in the third machine.
 
-
 Also inside the third machine we need to sconify the server application for the same reason of the central machine but here we are required to expose the port number 80, allowing the access to the service from the outside:
 ```
 sudo docker run --rm -it $MOUNT_SGXDEVICE -v "$PWD":/usr/src/myapp -w /usr/src/myapp -e SCONE_HEAP=256M -e SCONE_MODE=sim -e SCONE_ALLOW_DLOPEN=2 -e SCONE_ALPINE=1 -e SCONE_VERSION=1 -p 80:80 <your_version_of_scone__docker_image> sh
@@ -237,34 +236,42 @@ then open a browser page and text:
 http://localhost:8050
 ```
 
-We are able to see the result written by the application inside the scone container thanks to the permission of the container (for sake of simplicity we have not encrypted the excel file, but in a real context it should be encrypted applying a key exchanged previously between the container itself and the host).
+We are able to see the result written by the application inside the scone container thanks to the permission of the container (for sake of simplicity we have not encrypted the excel file, but in a real context it should be encrypted applying a key).
 
 Now we are required to start the key exchange between the client and the server, so in the client machine:
 ```
 sudo python3 diffie_hellman_ue.py
 ```
 
-At this moment, we need to activate the nfqueue script as well as to execute the UE container in the client:
+This scripts simulates the authentication (a key-exchange through Diffie-Hellman) and authorization process between the controller and the UE, who wants to have access to a specific service.
+
+At this moment, we need to activate the connection filter script as well as to execute the UE container in the client:
 ```
 sudo python3 nfqueue_test.py
 ```
+This code is capturing, thanks to the iptables rules, the packets which are circulating in the stream to check if they are forwarded to the service server.
+In that case, this program inject the header needed to pass the authorization check inside the packet and then forwards it.
 
-now the container:
+Now execute the container:
 ```
 sudo docker exec -it ue bash
 ```
-and inside the container:
+and inside it:
 ```
 python3 demo_client.py
 ```
 
-From here, the authorization protcol is executed and the client is connected to : 
+From here, the authorization protocol is executed between the UE and the server: 
 
 * The UE is sending the first packet of the three-way handshake TCP connection
-* The connection filter is injecting the authorization token inside the packet sending it
+* The connection filter (which is at the exit of the UPF node) is injecting the authorization token inside the packet resending it
+* In the central machine the P4 switch detects the packet, accepts it thanks to the token and authorize the TCP connection waiting for the ACK answer of the server
+* The controller receives a copy of the SYN packet, it logs the packet and sets the rules inside the P4 switch
+* In the third machine the server answers to the SYN packet with an ACK one
+* Now the packet can transit without any problem through the P4 switch
+* The UE receives the ACK packet and sends back the final SYN ACK packet in order to establish the TCP connection and it starts to behaviour like the sensor meter
+* You can check on the webpage open in the third machine the results
 
-
-**TO BE FINISHED**
 
 ### on Virtual Machines
 
@@ -368,6 +375,15 @@ pip3 install pandas
 pip3 install dash
 pip3 install plotly
 ```
+
+## Non Intrusive Load Monitoring Toolkit and HIPE dataset
+
+Non-Intrusive Load Monitoring (NILM) is the process of estimating the energy consumed by individual appliances given just a whole-house power meter reading. In other words, it produces an (estimated) itemised energy bill from just a single, whole-house power meter. Nowadays, we have thought that because it is considered as a relevant research branch and application for machine learning and security.
+
+For what concern the data serach, we have chosen the [High-resolution Industrial Production Energy (HIPE) data set](https://www.energystatusdata.kit.edu/hipe.php), which contains smart meter readings of ten machines and the main terminal of a power-electronics production plant over three months because it is one of the most well documented data set and it is easy to find online without any type of permissions to access it.
+
+In our work, we have adopted a inference statistical analysis (insted of a Machine Learnin process) on the data to retrieve the possible states of the first top 5 appliances.
+In this way, we have modified the approach of the [NILMTK project](https://github.com/nilmtk/nilmtk/tree/master) reducing the complexity of the parser enabling the possibility to retrieve the top 5 appliance from the total power consumption sent from the "sensor meter" in the UE container. 
 
 ## Warning
 UE container is unstable. Sometimes UEs' interfaces lose connectivity or they disappear at all.
