@@ -279,6 +279,7 @@ control my_ingress( inout headers_t hdr,
         // REMEMBER TO OPEN ANOTHER TERMINAL TO ACTIVATE THE simple_switch_CLI AND PRINTING THE COMMAND mirroring_add <mirror_id> <egress_port>
         // our command is -> mirroring_add 5 255
         // mirroring_add I2E_CLONE_SESSION_ID CONTROL_PORT
+        // that is not required if in the control plane there is the instantiation of the clone session (like at the moment)
         clone(CloneType.I2E, I2E_CLONE_SESSION_ID);
     }
 

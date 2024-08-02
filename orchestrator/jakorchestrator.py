@@ -386,7 +386,7 @@ def key_computation(p, g, A, imsi, client_address, service_ip, service_port):
         hash_hex = hashlib.shake_128(str(1).encode() + bytes(master_key, 'utf-8') + base64_bytes).hexdigest(16)
         #hash_hex = hmac.new(bytes(keyB, 'utf-8'), base64_bytes, hashlib.sha512).hexdigest()
         hash_time = time.time()
-        print('HASH CALCULATED: ' + str(hash_hex) + "at" + str(hash_time))
+        #print('HASH CALCULATED: ' + str(hash_hex) + "at" + str(hash_time))
 
         # inserting the entries in hmac table
         te = sh.TableEntry('my_ingress.hmac')(action='my_ingress.hmac_forward')
@@ -399,7 +399,7 @@ def key_computation(p, g, A, imsi, client_address, service_ip, service_port):
         print("[!] New HASH entry added at:" + str(hash_inserted))
         hash_entry_history.append({"ip_dst":service_ip, "ip_src":client_address[0], "dport":service_port, "sport":client_address[1], "ether_src":ether_src, "ether_dst":ether_dst, "egress_port":2, "hash":hash_hex, "te":te})
         print(hash_entry_history)
-        print("SERVICE TIME = " + str(hash_inserted-hash_time))        
+        #print("SERVICE TIME = " + str(hash_inserted-hash_time))        
         # inserting the entries in forward table
         addOpenEntry(client_address[0], service_ip, service_port, ether_dst, 2, ether_src, "client")
         addOpenEntry(service_ip, client_address[0], service_port, ether_src, 1, ether_dst, "service")
@@ -437,14 +437,14 @@ def packetHandler(streamMessageResponse):
         if pkt_ip != None:
             pkt_src = pkt_ip.src
             pkt_dst = pkt_ip.dst
-        #else:
-            #print("[!] IP layer not present")
+        else:
+            print("[!] IP layer not present")
 
         if pkt_tcp != None:
             sport = pkt_tcp.sport
             dport = pkt_tcp.dport
-        #else:
-            #print("[!] TCP layer not present")
+        else:
+            print("[!] TCP layer not present")
 
         if pkt_udp != None:
             sport = pkt_udp.sport
@@ -459,8 +459,8 @@ def packetHandler(streamMessageResponse):
         
             # check for waited replies in open_entry_history
             for dictionary in open_entry_history:
-                #print("[PACKET HANDLER] CHECKING FOR OPEN ENTRY HISTORY...")
-                #print(str(pkt.getlayer(IP)))
+                print("[PACKET HANDLER] CHECKING FOR OPEN ENTRY HISTORY...")
+                print(str(pkt_ip))
                 #print(str(pkt_src), str(dictionary["ip_src"]), str(pkt_src == dictionary["ip_src"]))
                 #print(str(pkt_dst), str(dictionary["ip_dst"]), str(pkt_dst == dictionary["ip_dst"]))
                 if pkt_ip != None and pkt_src == dictionary["ip_src"] and pkt_dst == dictionary["ip_dst"]:
@@ -520,7 +520,8 @@ def controller():
     # connection
     sh.setup(
         device_id=1,
-        grpc_addr='127.0.0.1:50051', #substitute ip and port with the ones of the specific switch
+        grpc_addr='10.79.23.52:50051', #substitute ip and port with the ones of the specific switch
+        #grpc_addr='127.0.0.1:50051', #substitute ip and port with the ones of the specific switch
         election_id=(1, 0), # (high, low)
         config=sh.FwdPipeConfig('../p4/p4-test.p4info.txt','../p4/p4-test.json')
     )
@@ -537,6 +538,10 @@ def controller():
     cse = sh.CloneSessionEntry(5)
     cse.add(255,1)
     cse.insert()
+
+    print("Session clone activated",end='\n\n')
+    for c in cse.read():
+        print(c)
 
     # get and save policies_list
     getPolicies()
@@ -570,8 +575,9 @@ def controller():
         s.listen()
 
         while True:
-            connection, client_address = s.accept()
 
+            connection, client_address = s.accept()
+            print(connection, client_address)
             # for the TLS implementation: wrapping the socket previously instantiated
             connection = context.wrap_socket(connection, server_side=True) 
             print("SSL established. Peer: {}".format(connection.getpeercert()))
